@@ -8,7 +8,20 @@
 
 - 安装 Codex Desktop 与 **Node.js 22.13+**。安装器使用执行它的 Node 路径。
 - 保留现有候选人工作区，默认位于 `~/.jobos-next`；产品更名不迁移或重置这个目录。
-- 从同一个[测试版本](https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.10)下载 ZIP 和 `SHA256SUMS`。运行 `shasum -a 256 Coming-Jobs-v1.0.0-beta.10.zip`，将结果与 `SHA256SUMS` 比较。
+
+## 下载
+
+**通过 Agent 下载**
+
+在 Codex Desktop 新建任务，复制下面这句话即可，无需先安装 Coming Jobs：
+
+```text
+请从 https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.10 下载 Coming Jobs 测试版的 ZIP 和 SHA256SUMS，校验 SHA-256 后解压到本地，并告诉我解压位置和 Codex Desktop 的安装步骤。
+```
+
+**手动下载**
+
+从同一个[测试版本](https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.10)下载 ZIP 和 `SHA256SUMS`。运行 `shasum -a 256 Coming-Jobs-v1.0.0-beta.10.zip`，将结果与 `SHA256SUMS` 比较。
 
 ## 安装
 

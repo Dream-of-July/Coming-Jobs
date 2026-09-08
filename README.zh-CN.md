@@ -38,14 +38,25 @@
 
 ## 从一句话开始
 
-1. 下载并解压 **[Coming-Jobs-v1.0.0-beta.10.zip](https://github.com/Dream-of-July/Coming-Jobs/releases/download/v1.0.0-beta.10/Coming-Jobs-v1.0.0-beta.10.zip)**。
-2. 安装 **Node.js 22.13 或更新版本**与 Codex Desktop。在 macOS 打开 `Install.command`，或在解压目录运行：
+**通过 Agent 下载**
+
+在 Codex Desktop 新建任务，复制下面这句话即可，无需先安装 Coming Jobs：
+
+```text
+请从 https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.10 下载 Coming Jobs 测试版的 ZIP 和 SHA256SUMS，校验 SHA-256 后解压到本地，并告诉我解压位置和 Codex Desktop 的安装步骤。
+```
+
+**手动下载：** [ZIP](https://github.com/Dream-of-July/Coming-Jobs/releases/download/v1.0.0-beta.10/Coming-Jobs-v1.0.0-beta.10.zip) · [SHA256SUMS](https://github.com/Dream-of-July/Coming-Jobs/releases/download/v1.0.0-beta.10/SHA256SUMS)。下载两个文件，核对校验和后解压 ZIP。
+
+下载并解压后：
+
+1. 安装 **Node.js 22.13 或更新版本**与 Codex Desktop。在 macOS 打开 `Install.command`，或在解压目录运行：
 
    ```sh
    node scripts/install.mjs
    ```
 
-3. 重启 Codex Desktop，新建一个任务，说：
+2. 重启 Codex Desktop，新建一个任务，说：
 
    > 开始 Coming Jobs。先复用我已经确认的资料，帮我选好下一次投递。
 

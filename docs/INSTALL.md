@@ -8,7 +8,20 @@
 
 - Install Codex Desktop and Node.js **22.13+**. The installer uses the Node executable that runs it.
 - Keep your existing candidate workspace. The default is `~/.jobos-next`; renaming the product does not rename or reset this directory.
-- Download the ZIP and `SHA256SUMS` from the same [test release](https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.10). Check the downloaded ZIP with `shasum -a 256 Coming-Jobs-v1.0.0-beta.10.zip` and compare the result with `SHA256SUMS`.
+
+## Download
+
+**Download with an agent**
+
+Open a task in Codex Desktop and paste this prompt. Coming Jobs does not need to be installed first.
+
+```text
+Please download the Coming Jobs test release ZIP and SHA256SUMS from https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.10, verify the SHA-256 checksum, and extract the ZIP locally. Tell me where it was extracted and how to install it in Codex Desktop.
+```
+
+**Manual download**
+
+Download the ZIP and `SHA256SUMS` from the same [test release](https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.10). Check the downloaded ZIP with `shasum -a 256 Coming-Jobs-v1.0.0-beta.10.zip` and compare the result with `SHA256SUMS`.
 
 ## Install
 
