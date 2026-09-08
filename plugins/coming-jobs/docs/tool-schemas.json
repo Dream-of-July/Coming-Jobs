@@ -276,6 +276,669 @@
     }
   },
   {
+    "name": "jobos1_material_index",
+    "title": "已授权材料索引与精确哈希文本缓存；先复用确认基线，不按日期猜版本",
+    "description": "已授权材料索引与精确哈希文本缓存；先复用确认基线，不按日期猜版本。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "index"
+            },
+            "source_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "maxItems": 1000
+            },
+            "material_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "maxItems": 1000
+            },
+            "include_text": {
+              "type": "boolean"
+            },
+            "parser_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "lookup"
+            },
+            "source_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "maxItems": 1000
+            },
+            "material_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "maxItems": 1000
+            },
+            "include_text": {
+              "type": "boolean"
+            },
+            "parser_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "inventory"
+            },
+            "root": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "extensions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20
+              },
+              "maxItems": 20
+            },
+            "max_files": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "max_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20971520
+            },
+            "authorized": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "root",
+            "authorized",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "cache_host_text"
+            },
+            "sha256": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000000
+            },
+            "parser_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "extraction_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "sha256",
+            "text",
+            "extraction_ref"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_tasks",
+    "title": "轻量只读子任务：规划、领取、提案、主 Agent 复核与恢复；宿主执行 Luna medium",
+    "description": "轻量只读子任务：规划、领取、提案、主 Agent 复核与恢复；宿主执行 Luna medium。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "plan"
+            },
+            "parent_run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "tasks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "job_assessment",
+                      "material_comparison",
+                      "source_extraction",
+                      "company_introduction",
+                      "status_summary"
+                    ]
+                  },
+                  "inputs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "job",
+                            "source",
+                            "material",
+                            "application",
+                            "company"
+                          ]
+                        },
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "id"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 10
+                  },
+                  "fact_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "maxItems": 50
+                  },
+                  "scope": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "authorization_ref": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  },
+                  "dependencies": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "maxItems": 20
+                  }
+                },
+                "required": [
+                  "kind",
+                  "inputs",
+                  "authorization_ref"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 100
+            }
+          },
+          "required": [
+            "operation",
+            "parent_run_id",
+            "tasks"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "claim"
+            },
+            "parent_run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "host_capacity": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            },
+            "luna_available": {
+              "type": "boolean"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3
+            }
+          },
+          "required": [
+            "operation",
+            "parent_run_id",
+            "host_capacity",
+            "luna_available"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "complete"
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "attempt_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "input_hash": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "results": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "input_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "include",
+                      "exclude",
+                      "uncertain"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "evidence_refs": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "maxItems": 60
+                  },
+                  "hard_conflict": {
+                    "type": "boolean"
+                  },
+                  "findings": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
+                    },
+                    "maxItems": 30
+                  },
+                  "assessment": {
+                    "type": "object",
+                    "properties": {
+                      "job_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "job_hash": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "mappings": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "requirement_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            "relation": {
+                              "type": "string",
+                              "enum": [
+                                "direct",
+                                "transferable",
+                                "gap",
+                                "unknown"
+                              ]
+                            },
+                            "evidence_ids": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              },
+                              "maxItems": 30
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000
+                            }
+                          },
+                          "required": [
+                            "requirement_id",
+                            "relation",
+                            "evidence_ids",
+                            "reason"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 60
+                      },
+                      "eligibility": {
+                        "type": "string",
+                        "enum": [
+                          "pass",
+                          "unknown",
+                          "fail"
+                        ]
+                      },
+                      "advantages": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "maxItems": 8
+                      },
+                      "gaps": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "maxItems": 8
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "job_id",
+                      "job_hash",
+                      "mappings",
+                      "eligibility",
+                      "advantages",
+                      "gaps",
+                      "reason"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "input_id",
+                  "decision",
+                  "reason",
+                  "evidence_refs"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 10
+            },
+            "metrics": {
+              "type": "object",
+              "properties": {
+                "input_bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100000000
+                },
+                "output_bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100000000
+                },
+                "input_tokens": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000000
+                },
+                "output_tokens": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000000
+                },
+                "elapsed_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 86400000
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "operation",
+            "task_id",
+            "attempt_id",
+            "input_hash",
+            "results"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "review"
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "checked_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "maxItems": 10
+            },
+            "error_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "maxItems": 10
+            },
+            "review_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "task_id",
+            "checked_ids",
+            "error_ids",
+            "review_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "takeover"
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "unavailable",
+                "failed",
+                "interrupted",
+                "ambiguous"
+              ]
+            }
+          },
+          "required": [
+            "operation",
+            "task_id",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "cancel"
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "required": [
+            "operation",
+            "task_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "status"
+            },
+            "parent_run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "include_results": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "operation",
+            "parent_run_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "metrics"
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
     "name": "jobos1_context",
     "title": "一次读取本次任务的画像、完整申请上下文和可选下一步；不得逐字段分页",
     "description": "一次读取本次任务的画像、完整申请上下文和可选下一步；不得逐字段分页。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
@@ -701,6 +1364,11 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 100
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3
             }
           },
           "required": [

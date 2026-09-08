@@ -1,5 +1,15 @@
 # Changelog / 版本记录
 
+## 1.0.0-beta.10 — Lightweight workers test release / 轻量分工测试版
+
+- Added host-managed Luna medium read-only tasks, bounded concurrency, review gates, per-attempt recovery and reviewed-result caching.
+- Added compact resume material lookup, hash-bound extraction caching and authorized bounded directory inventory.
+- Added backward-compatible daily batch allocation with per-task download reservations.
+- Kept original business-write, complete-resume and human-submission boundaries; no existing installation is changed by building this version.
+- Added synthetic coverage and a real two-worker Codex Desktop exercise. No total-token or real-application speedup claim.
+- 中文：轻量并发、完整材料索引、原子预算与恢复；子任务只提案，主 Agent 复核，旧调用及用户资料兼容。
+- Details / 详情：[Lightweight tasks / 轻量任务](docs/LIGHTWEIGHT.md).
+
 ## 1.0.0-beta.9 — Coming Jobs test release
 
 - New product identity, plugin ID and public repository: **Coming Jobs**.

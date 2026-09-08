@@ -24,7 +24,7 @@ export function workspace(store, a) {
     }
     if (a.operation === 'export') {
         consent(a.authorized, a.user_ref);
-        const kinds = ['fact', 'proposal', 'fact_history', 'settings', 'job', 'collection', 'job_snapshot', 'assessment', 'batch', 'application', 'plan', 'draft', 'draft_history', 'feedback', 'capability', 'material', 'observation', 'notification', 'source', 'interview_pack', 'interview_review', 'company', 'opportunity', 'daily_source', 'daily_budget', 'daily_task', 'daily_run', 'daily_report', 'daily_feedback', 'daily_todo', 'application_scope', 'experience', 'execution_batch', 'baseline_history', 'execution_summary', 'material_variation'];
+        const kinds = ['fact', 'proposal', 'fact_history', 'settings', 'job', 'collection', 'job_snapshot', 'assessment', 'batch', 'application', 'plan', 'draft', 'draft_history', 'feedback', 'capability', 'material', 'observation', 'notification', 'source', 'interview_pack', 'interview_review', 'company', 'opportunity', 'daily_source', 'daily_budget', 'daily_task', 'daily_run', 'daily_report', 'daily_feedback', 'daily_todo', 'application_scope', 'experience', 'execution_batch', 'baseline_history', 'execution_summary', 'material_variation', 'agent_task', 'agent_attempt', 'material_index_cache'];
         const records = Object.fromEntries(kinds.map(k => [k, store.all(k)]));
         const file = store.writeExport(`jobos-export-${Date.now()}.json`, { format: CONTRACT, workspace: store.workspace, created_at: now(), records });
         const assetsDir = file.replace(/\.json$/, '-assets');
@@ -39,9 +39,22 @@ export function workspace(store, a) {
         const bytes = readFileSync(a.file);
         assert(bytes.length < 50 * 1024 * 1024, 'import_too_large', '导入文件过大。');
         const data = JSON.parse(bytes.toString('utf8'));
-        noSecrets(data);
+        // Usage counters are numeric metrics, not authentication tokens. Keep
+        // the general secret filter strict for every other key and value.
+        const inspected = structuredClone(data);
+        for (const kind of ['agent_task', 'agent_attempt']) {
+            for (const record of inspected.records?.[kind] ?? []) {
+                for (const key of ['input_tokens', 'output_tokens']) {
+                    if (!Object.hasOwn(record.metrics ?? {}, key)) continue;
+                    const value = record.metrics[key];
+                    assert(Number.isInteger(value) && value >= 0 && value <= 10000000, 'invalid_usage', '用量指标必须为有界非负整数。');
+                    delete record.metrics[key];
+                }
+            }
+        }
+        noSecrets(inspected);
         if (data.format === CONTRACT) {
-            const kinds = ['fact', 'proposal', 'fact_history', 'settings', 'job', 'collection', 'job_snapshot', 'assessment', 'batch', 'application', 'plan', 'draft', 'draft_history', 'feedback', 'capability', 'material', 'observation', 'notification', 'source', 'interview_pack', 'interview_review', 'company', 'opportunity', 'daily_source', 'daily_budget', 'daily_task', 'daily_run', 'daily_report', 'daily_feedback', 'daily_todo', 'application_scope', 'experience', 'execution_batch', 'baseline_history', 'execution_summary', 'material_variation'];
+            const kinds = ['fact', 'proposal', 'fact_history', 'settings', 'job', 'collection', 'job_snapshot', 'assessment', 'batch', 'application', 'plan', 'draft', 'draft_history', 'feedback', 'capability', 'material', 'observation', 'notification', 'source', 'interview_pack', 'interview_review', 'company', 'opportunity', 'daily_source', 'daily_budget', 'daily_task', 'daily_run', 'daily_report', 'daily_feedback', 'daily_todo', 'application_scope', 'experience', 'execution_batch', 'baseline_history', 'execution_summary', 'material_variation', 'agent_task', 'agent_attempt', 'material_index_cache'];
             assert(kinds.every(k => store.all(k).length === 0), 'restore_not_empty', '恢复备份需要空的新工作区，避免覆盖现有资料。');
             const assetRoot = a.assets_dir ?? a.file.replace(/\.json$/, '-assets');
             for (const r of [...(data.records.material ?? []), ...(data.records.source ?? [])])
@@ -54,6 +67,8 @@ export function workspace(store, a) {
             for (const k of kinds)
                 for (const raw of data.records[k] ?? []) {
                     const r = { ...raw };
+                    if (k === 'agent_attempt' && r.state === 'running') r.state = 'interrupted';
+                    if (k === 'agent_task') { r.state = 'pending'; r.attempt_id = null; r.owner = null; r.result = null; r.cache_hit = false; r.checked_ids = []; r.error_ids = []; r.review_required = []; }
                     if (k === 'experience') r.state = 'candidate';
                     if (k === 'execution_batch') { r.state = 'unknown'; r.grant = null; }
                     if (k === 'application') {

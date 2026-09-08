@@ -2,14 +2,14 @@
 
 <p align="center">
   <a href="README.zh-CN.md">简体中文</a> · <b>English</b><br>
-  <a href="https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.9">Download the test release</a> ·
+  <a href="https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.10">Download the test release</a> ·
   <a href="docs/INSTALL.md">Install</a> ·
   <a href="docs/TESTING.md">What's tested</a> ·
   <a href="https://github.com/Dream-of-July/Coming-Jobs/issues/new/choose">Feedback</a>
 </p>
 
 <p align="center">
-  <img alt="Test release" src="https://img.shields.io/badge/release-beta.9-daf578?style=flat-square&amp;labelColor=19251c&amp;color=daf578">
+  <img alt="Test release" src="https://img.shields.io/badge/release-beta.10-daf578?style=flat-square&amp;labelColor=19251c&amp;color=daf578">
   <img alt="Codex Desktop only" src="https://img.shields.io/badge/optimized_for-Codex_Desktop-19251c?style=flat-square">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-19251c?style=flat-square"></a>
 </p>
@@ -17,6 +17,9 @@
 **Coming Jobs is a local-first career companion that turns your experience into a thoughtful shortlist, a complete resume, and an application you can confidently review.**
 
 > **Test release · Optimized exclusively for Codex Desktop.** The reference environment is macOS. Other agent hosts, operating systems and unattended submission are not supported or promised by this beta. This is an independent project, not an OpenAI product.
+
+
+> **beta.10** adds [Luna workers and material indexing](docs/LIGHTWEIGHT.md).
 
 ## Less administration. More attention to the right opportunity.
 
@@ -35,7 +38,7 @@ Job searching scatters your attention across company pages, resume versions, for
 
 ## Start with one conversation
 
-1. Download and extract **[Coming-Jobs-v1.0.0-beta.9.zip](https://github.com/Dream-of-July/Coming-Jobs/releases/download/v1.0.0-beta.9/Coming-Jobs-v1.0.0-beta.9.zip)**.
+1. Download and extract **[Coming-Jobs-v1.0.0-beta.10.zip](https://github.com/Dream-of-July/Coming-Jobs/releases/download/v1.0.0-beta.10/Coming-Jobs-v1.0.0-beta.10.zip)**.
 2. With **Node.js 22.13 or newer** and Codex Desktop installed, open `Install.command` on macOS, or run from the extracted folder:
 
    ```sh
@@ -68,7 +71,7 @@ Personal facts, materials, draft observations and experience records live in a p
 
 ## Built for careful testing
 
-This beta carries **183 automated regression tests**. The preceding runtime also completed a real Codex Desktop synthetic test of an eight-field ordinary batch, including persisted preparation and returned field observations. Complex portal controls and attachment behavior still need site-specific verification; a synthetic success is not proof that every recruiting site is supported.
+This beta carries **212 automated regression tests**. The preceding runtime also completed a real Codex Desktop synthetic test of an eight-field ordinary batch, including persisted preparation and returned field observations. Complex portal controls and attachment behavior still need site-specific verification; a synthetic success is not proof that every recruiting site is supported.
 
 [Read the validation scope and known limitations →](docs/TESTING.md)
 

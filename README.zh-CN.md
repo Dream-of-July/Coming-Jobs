@@ -2,14 +2,14 @@
 
 <p align="center">
   <b>简体中文</b> · <a href="README.md">English</a><br>
-  <a href="https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.9">下载测试版</a> ·
+  <a href="https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.10">下载测试版</a> ·
   <a href="docs/INSTALL.zh-CN.md">安装指南</a> ·
   <a href="docs/TESTING.zh-CN.md">测试范围</a> ·
   <a href="https://github.com/Dream-of-July/Coming-Jobs/issues/new/choose">反馈问题</a>
 </p>
 
 <p align="center">
-  <img alt="测试版本 beta.9" src="https://img.shields.io/badge/release-beta.9-daf578?style=flat-square&amp;labelColor=19251c&amp;color=daf578">
+  <img alt="测试版本 beta.10" src="https://img.shields.io/badge/release-beta.10-daf578?style=flat-square&amp;labelColor=19251c&amp;color=daf578">
   <img alt="仅为 Codex Desktop 优化" src="https://img.shields.io/badge/optimized_for-Codex_Desktop-19251c?style=flat-square">
   <a href="LICENSE"><img alt="MIT 许可" src="https://img.shields.io/badge/license-MIT-19251c?style=flat-square"></a>
 </p>
@@ -17,6 +17,9 @@
 **Coming Jobs 是一个优先使用本地存储的求职助手，帮你把真实经历转化为值得考虑的岗位、内容完整的简历，以及可以放心检查的投递。**
 
 > **测试版本 · 目前仅为 Codex Desktop 优化。** 参考测试环境为 macOS；本测试版不承诺支持其他 Agent 宿主、操作系统或无人值守提交。这是独立项目，并非 OpenAI 官方产品。
+
+
+> **beta.10** 新增 [Luna 轻量分工与材料索引](docs/LIGHTWEIGHT.md)。
 
 ## 少些重复操作，把注意力留给合适的机会
 
@@ -35,7 +38,7 @@
 
 ## 从一句话开始
 
-1. 下载并解压 **[Coming-Jobs-v1.0.0-beta.9.zip](https://github.com/Dream-of-July/Coming-Jobs/releases/download/v1.0.0-beta.9/Coming-Jobs-v1.0.0-beta.9.zip)**。
+1. 下载并解压 **[Coming-Jobs-v1.0.0-beta.10.zip](https://github.com/Dream-of-July/Coming-Jobs/releases/download/v1.0.0-beta.10/Coming-Jobs-v1.0.0-beta.10.zip)**。
 2. 安装 **Node.js 22.13 或更新版本**与 Codex Desktop。在 macOS 打开 `Install.command`，或在解压目录运行：
 
    ```sh
@@ -68,7 +71,7 @@ flowchart LR
 
 ## 适合认真试用的测试版
 
-本版本包含 **183 项自动化回归测试**。此前运行时也在真实 Codex Desktop 中完成了八个普通字段的合成批处理验收，包含写前持久化和逐字段回执。学校、日期、附件解析等复杂控件仍需逐门户核验；合成测试通过不代表所有招聘网站均已支持。
+本版本包含 **212 项自动化回归测试**。此前运行时也在真实 Codex Desktop 中完成了八个普通字段的合成批处理验收，包含写前持久化和逐字段回执。学校、日期、附件解析等复杂控件仍需逐门户核验；合成测试通过不代表所有招聘网站均已支持。
 
 [查看验证范围和已知限制 →](docs/TESTING.zh-CN.md)
 

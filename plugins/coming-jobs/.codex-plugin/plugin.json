@@ -1,6 +1,6 @@
 {
   "name": "coming-jobs",
-  "version": "1.0.0-beta.9",
+  "version": "1.0.0-beta.10",
   "description": "A local-first career companion. Optimized exclusively for Codex Desktop. / 为 Codex Desktop 优化的本地求职助手。",
   "skills": "./skills",
   "mcpServers": "./.mcp.json",

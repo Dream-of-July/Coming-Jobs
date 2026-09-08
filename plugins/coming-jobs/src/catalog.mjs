@@ -1,3 +1,5 @@
+import { MATERIAL_INDEX_SCHEMA } from './material-index.mjs';
+import { tasksSchema } from './tasks.mjs';
 import { dailySchema } from './daily-schema.mjs';
 import { HOST_POLICY } from './policy.mjs';
 import { S, B, I, E, A, O, V, OP } from './core.mjs';
@@ -35,6 +37,8 @@ tool('experience', '限定页面范围的操作经验；候选经合成验证和
     OP('enable', { experience_id: S(100), scope: EXPERIENCE_SCOPE, observed_at: S(80), unique_match: B, readback_match: B }),
     OP('disable', { experience_id: S(100) }), OP('metrics')
 ] });
+tool('material_index', '已授权材料索引与精确哈希文本缓存；先复用确认基线，不按日期猜版本', MATERIAL_INDEX_SCHEMA);
+tool('tasks', '轻量只读子任务：规划、领取、提案、主 Agent 复核与恢复；宿主执行 Luna medium', tasksSchema(ASSESSMENT));
 tool('context', '一次读取本次任务的画像、完整申请上下文和可选下一步；不得逐字段分页', O({ scope: E('current', 'profile', 'applications', 'application', 'metrics', 'daily'), application_id: S(100), session_id: S(100), turn_id: S(100), since: S(64) }, []), true);
 tool('daily', '公司机会账本与每日五家待办；按预算增量采集、评估、跨日恢复，选定后准备材料', dailySchema(JOB, COLLECTION, ASSESSMENT));
 tool('remember', '保存新信息或修正；用户直接陈述可确认，资料提取先成为提案', O({ mode: E('user_statement', 'extracted'), facts: A(FACT, 100), source_id: S(100), confirmed: B, user_ref: S(1000), question_id: S(200), request_id: S(150) }, ['mode', 'facts']));

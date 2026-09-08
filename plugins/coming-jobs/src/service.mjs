@@ -1,3 +1,5 @@
+import { materialIndex } from './material-index.mjs';
+import { agentTasks } from './tasks.mjs';
 import { executionCheckpoint } from './execution.mjs';
 import { experience } from './experience.mjs';
 import { daily, dailySummary, dailyFlow } from './daily.mjs';
@@ -15,7 +17,7 @@ export const handlers = {
     context: (s, a) => {
         if (a.scope === 'daily') return dailySummary(s);
         if (a.scope === 'metrics')
-            return { ...metrics(s), execution: s.all('execution_summary') };
+            return { ...metrics(s), execution: s.all('execution_summary'), lightweight: agentTasks(s, { operation: 'metrics' }) };
         if (a.scope === 'application')
             return { ...applicationContext(s, a.application_id), resume_baseline: s.get('settings','resume_baseline',false), execution_batches: s.all('execution_batch').filter(b => b.application_id === a.application_id).map(b => ({ ...b, recovery_required: ['pending','unknown'].includes(b.state) })) };
         if (a.scope === 'applications')
@@ -25,11 +27,11 @@ export const handlers = {
         return { task: active, current_application: activeId && s.get('application', activeId, false) ? applicationContext(s, activeId) : null, coverage: coverage(s), facts: facts(s, a.scope === 'profile' ? null : 'matching'), proposals: s.all('proposal').filter(p => p.state === 'proposed'),
             question: nextQuestion(s), applications: s.all('application').map(({ id, company, title, stage, submission_evidence }) => ({ id, company, title, stage, submission_evidence })),
             preferences: s.get('settings', 'preferences', false), schedule: s.get('settings', 'schedule', false), daily: dailySummary(s), templates: TEMPLATES,
-            capabilities: { storage: 'available', form_planning: 'available', web_search: 'host_required', browser: 'host_required', figma: 'host_connection_required',
+            capabilities: { lightweight_tasks: 'host_subagents_required', preferred_worker: 'gpt-5.6-luna', worker_reasoning: 'medium', max_workers: 3, storage: 'available', form_planning: 'available', web_search: 'host_required', browser: 'host_required', figma: 'host_connection_required',
                 chatgpt_memory: 'host_tool_or_authorized_export', transcription: 'host_required', email_sms: 'authorized_host_connector_or_manual_read', scheduler: 'host_required', final_submit: 'human_only' },
             recent_handoff: a.session_id ? s.get('turn', a.session_id, false) : null };
     },
-    experience, daily, remember, profile: controlProfile, jobs: (s, a) => a.operation === 'ingest' ? saveJobs(s, a) : assessJobs(s, a), shortlist, material: materialAction,
+    material_index: materialIndex, tasks: agentTasks, experience, daily, remember, profile: controlProfile, jobs: (s, a) => a.operation === 'ingest' ? saveJobs(s, a) : assessJobs(s, a), shortlist, material: materialAction,
     plan: planApplication, authorize, checkpoint: (s,a) => a.phase ? executionCheckpoint(s,a) : checkpoint(s,a), recover: recovery, review, handoff, outcome: recordOutcome, followup, interview, workspace, finish: finishTurn
 };
 export function call(store, name, args = {}) {

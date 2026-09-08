@@ -11,7 +11,7 @@ node scripts/install.mjs --verify-only
 node scripts/simulate.mjs
 ```
 
-The inherited runtime has 183 automated regression tests. They cover confirmed-fact boundaries, application state, content consent, complete JD scope, daily budgets, material baselines, company-specific variations, partial batch recovery, upload-stage guards and private-workspace migration. These are synthetic tests, not applications sent to employers.
+The beta.10 source has 212 automated regression tests. They cover confirmed-fact boundaries, application state, content consent, complete JD scope, daily budgets, material baselines, company-specific variations, partial batch recovery, upload-stage guards and private-workspace migration. These are synthetic tests, not applications sent to employers.
 
 Installer tests run in temporary homes. Browser helpers use test adapters; tests are not evidence of universal recruiting-site compatibility. The built-in demo uses only synthetic candidates and example company URLs.
 
@@ -41,3 +41,7 @@ The renamed beta.9 package is checked separately for regression, installation, s
 ## Good test feedback
 
 Use a synthetic page and fake candidate values. Include the plugin build, Codex Desktop version, expected behavior, actual behavior and whether a user edit was preserved. Do not upload resumes, account tokens, assessment links, complete chats or screenshots containing personal information.
+
+## Lightweight worker validation
+
+[Host exercise, benchmark scope and metric limits](LIGHTWEIGHT.md). Run `node --no-warnings scripts/task-benchmark.mjs` for the synthetic dispatcher comparison.

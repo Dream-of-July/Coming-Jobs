@@ -12,7 +12,7 @@ export function dailySchema(JOB, COLLECTION, ASSESSMENT) {
         OP('opportunity', { company_id: S(100), track: E('campus', 'internship', 'experienced'), campaign: S(300), limit: I(0, 100), exhausted: B,
             source: E('official', 'user_report'), source_ref: S(2000), observed_at: S(80) }, ['company_id', 'track', 'campaign', 'source', 'source_ref', 'observed_at']),
         OP('link_application', { application_id: S(100), company_id: S(100), track: E('campus', 'internship', 'experienced'), campaign: S(300), source: E('official', 'user_report'), source_ref: S(2000), observed_at: S(80) }),
-        OP('status', { mode: E('live', 'demo') }, []), OP('start', { mode: E('live', 'demo') }, []), OP('next', { run_id: S(100) }),
+        OP('status', { mode: E('live', 'demo') }, []), OP('start', { mode: E('live', 'demo') }, []), OP('next', { run_id: S(100), limit: I(1, 3) }, ['run_id']),
         OP('observe', { ...run, state: E('done', 'partial', 'blocked'), changed: B, deadline: S(80), fingerprint: S(200),
             change_basis: E('complete_jd_manifest', 'revalidated_details', 'unknown'), cursor: S(1000), reason: S(1000) }, ['run_id', 'task_id', 'state']),
         OP('ingest', { ...run, jobs: A(JOB, 100), collection: COLLECTION, cursor: S(1000) }, ['run_id', 'task_id', 'jobs', 'collection']),

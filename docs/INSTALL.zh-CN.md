@@ -8,7 +8,7 @@
 
 - 安装 Codex Desktop 与 **Node.js 22.13+**。安装器使用执行它的 Node 路径。
 - 保留现有候选人工作区，默认位于 `~/.jobos-next`；产品更名不迁移或重置这个目录。
-- 从同一个[测试版本](https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.9)下载 ZIP 和 `SHA256SUMS`。运行 `shasum -a 256 Coming-Jobs-v1.0.0-beta.9.zip`，将结果与 `SHA256SUMS` 比较。
+- 从同一个[测试版本](https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.10)下载 ZIP 和 `SHA256SUMS`。运行 `shasum -a 256 Coming-Jobs-v1.0.0-beta.10.zip`，将结果与 `SHA256SUMS` 比较。
 
 ## 安装
 
@@ -26,7 +26,7 @@ node scripts/install.mjs
 
 > 开始 Coming Jobs。读取当前资料，从最后确认的步骤继续。
 
-首次 `jobos1_context` 应返回 **1.0.0-beta.9**。已运行的任务可能仍持有旧进程；复制新文件不等于热更新。
+首次 `jobos1_context` 应返回 **1.0.0-beta.10**。已运行的任务可能仍持有旧进程；复制新文件不等于热更新。
 
 ## 从 JobOS 升级
 
@@ -49,3 +49,5 @@ node scripts/install.mjs
 ## 停用与恢复
 
 通过 Codex 插件界面停用或移除 Coming Jobs。求职资料与安装代码分开存放，卸载代码不需要删除 `~/.jobos-next`。安装配置备份位于 `~/.local/share/coming-jobs/install-backups`。
+
+下载或解压不会自动更新已有 Desktop 安装。运行安装器后，完全退出并重新打开 Codex Desktop。

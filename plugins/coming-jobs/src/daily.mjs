@@ -71,21 +71,23 @@ function presentationTask(store, task) {
     const company = task.company_id ? store.get('company', task.company_id) : null;
     const jobs = (task.job_ids ?? []).map(id => store.get('job', id));
     const run = store.get('daily_run', task.run_id);
-    return { ...task, ...(task.kind === 'collect' ? { detail_limit: Math.max(0, config(store).assessment_limit - budget(store, run).downloaded) } : {}), company: company?.name, opportunity: company && task.scope ? opportunity(store, company, task.scope, store.get('daily_run', task.run_id).mode) : undefined, jobs: jobs.length ? jobs : undefined,
+    return { ...task, ...(task.kind === 'collect' ? { detail_limit: task.detail_limit ?? Math.max(0, config(store).assessment_limit - budget(store, run).downloaded) } : {}), company: company?.name, opportunity: company && task.scope ? opportunity(store, company, task.scope, store.get('daily_run', task.run_id).mode) : undefined, jobs: jobs.length ? jobs : undefined,
         introduction_due: company ? !fresh(company.introduction?.observed_at, 30) : undefined,
         next: task.kind === 'metadata' ? '只读核验完整岗位目录与变更标识；observe 保存公开游标、变化和核验结果。无可靠标识时标 changed=true。' :
             task.kind === 'collect' ? '按 scope 完成全部分页和完整 JD；用 daily(ingest) 分批保存，使用 next 恢复；预算不足保留游标。' :
             task.kind === 'assess' ? '仅评估本批完整 JD 的每项要求，再 daily(assess)；包含硬性不符的排除理由。' : '从已授权目录来源发现至多一家新公司；只登记官方入口，不自动准备材料。' };
 }
-function nextTask(store, runId) {
+const taskDependency = task => task.company_id ? `${task.company_id}:${scopeKey(task.scope ?? {})}` : `kind:${task.kind}`;
+function nextTaskSingle(store, runId, blocked = new Set(), allocationSlots) {
     const run = activeRun(store, runId), c = config(store), b = budget(store, run);
     const pending = store.all('daily_task').find(t => t.run_id === run.id && t.state === 'pending');
-    if (pending) return { task: presentationTask(store, pending), budget: b };
+    if (pending && !blocked.size) return { task: presentationTask(store, pending), budget: b };
     const attempted = (kind, company, scope) => store.all('daily_task').some(t => t.run_id === run.id && t.kind === kind && t.company_id === company.id && scopeKey(t.scope) === scopeKey(scope));
     const ordered = candidates(store, run);
     for (const { company, scopes } of ordered) {
         if (!b.metadata.includes(company.id) && b.metadata.length >= c.metadata_limit) continue;
         for (const scope of scopes) {
+            if (blocked.has(`${company.id}:${scopeKey(scope)}`)) continue;
             const source = sourceState(store, company, scope, run.mode);
             if (!currentDay(source?.checked_date, run.timezone) && !attempted('metadata', company, scope)) {
                 const task = reserve(store, run, { kind: 'metadata', company_id: company.id, scope,
@@ -103,13 +105,16 @@ function nextTask(store, runId) {
         }
         if (!b.companies.includes(company.id) && b.companies.length >= c.company_limit) continue;
         for (const scope of scopes) {
+            if (blocked.has(`${company.id}:${scopeKey(scope)}`)) continue;
             const source = sourceState(store, company, scope, run.mode);
             if (opportunity(store, company, scope, run.mode).state === 'needs_verification' || !currentDay(source?.checked_date, run.timezone) || source.state === 'blocked') continue;
             const { collection, jobs } = scopedJobs(store, company, scope, run.mode);
             if (source.state !== 'verified' || !collectionStatus(store, collection).complete) {
-                if (attempted('collect', company, scope) || b.downloaded >= c.assessment_limit) continue;
+                const available = c.assessment_limit - b.downloaded - (b.reserved_downloaded ?? 0);
+                if (attempted('collect', company, scope) || available <= 0) continue;
+                const detailLimit = allocationSlots ? Math.min(available, Math.ceil(available / allocationSlots)) : available;
                 const task = reserve(store, run, { kind: 'collect', company_id: company.id, scope, cursor: source.cursor ?? null,
-                    detail_limit: c.assessment_limit - b.downloaded }, { companies: [...new Set([...b.companies, company.id])] });
+                    detail_limit: detailLimit, quota_reserved: true }, { companies: [...new Set([...b.companies, company.id])], reserved_downloaded: (b.reserved_downloaded ?? 0) + detailLimit });
                 return { task: presentationTask(store, task), budget: budget(store, run) };
             }
             const missing = jobs.filter(j => !validAssessment(store, j));
@@ -122,11 +127,34 @@ function nextTask(store, runId) {
             }
         }
     }
-    if (b.expanded < c.expansion_limit && !store.all('daily_task').some(t => t.run_id === run.id && t.kind === 'expand')) {
+    if (b.expanded < c.expansion_limit && !store.all('daily_task').some(t => t.run_id === run.id && t.kind === 'expand') && !blocked.has('kind:expand')) {
         const task = reserve(store, run, { kind: 'expand' }, { expanded: b.expanded + 1 });
         return { task: presentationTask(store, task), budget: budget(store, run) };
     }
     return { task: null, budget: b, next: '调用 report 保存完整推荐及未完成原因；不为凑够五家公司扩大今天预算。' };
+}
+function nextTask(store, runId, limit) {
+    const run = activeRun(store, runId);
+    // Adopt pre-batch pending tasks without allocating the same download budget twice.
+    for (const task of store.all('daily_task').filter(t => t.run_id === run.id && t.kind === 'collect' && t.state === 'pending' && !t.quota_reserved)) {
+        const b = budget(store, run);
+        const remaining = Math.max(0, config(store).assessment_limit - b.downloaded - (b.reserved_downloaded ?? 0));
+        const quota = Math.min(task.detail_limit ?? remaining, remaining);
+        store.put('daily_task', task.id, { ...task, detail_limit: quota, quota_reserved: true });
+        store.put('daily_budget', b.id, { ...b, reserved_downloaded: (b.reserved_downloaded ?? 0) + quota });
+    }
+    if (limit === undefined) return nextTaskSingle(store, runId);
+    const pending = store.all('daily_task').filter(t => t.run_id === run.id && t.state === 'pending');
+    const tasks = pending.slice(0, limit).map(t => presentationTask(store, t));
+    const blocked = new Set(pending.map(taskDependency));
+    for (let i = 0; i < limit; i++) {
+        if (tasks.length >= limit) break;
+        const result = nextTaskSingle(store, runId, blocked, limit - tasks.length);
+        if (!result.task) break;
+        tasks.push(result.task);
+        blocked.add(taskDependency(result.task));
+    }
+    return { tasks, budget: budget(store, run), ...(tasks.length ? {} : { next: '调用 report 保存完整推荐及未完成原因；不为凑够五家公司扩大今天预算。' }) };
 }
 function buildReport(store, run) {
     const c = config(store), cards = [], pending = [];
@@ -229,14 +257,14 @@ export function daily(store, a) {
         const mode = a.mode ?? 'live', key = runKey(store, c, mode), existing = store.get('daily_run', key, false);
         if (existing) return { run: existing, next: '读取 next 续跑或 report 获取当前结果；不要重复创建任务。' };
         const budgetId = hash([store.workspace, localDate(c.timezone), c.timezone, mode]);
-        if (!store.get('daily_budget', budgetId, false)) store.put('daily_budget', budgetId, { metadata: [], companies: [], downloaded: 0, assessed: 0, expanded: 0,
+        if (!store.get('daily_budget', budgetId, false)) store.put('daily_budget', budgetId, { metadata: [], companies: [], downloaded: 0, reserved_downloaded: 0, assessed: 0, expanded: 0,
             expires_at: new Date(Date.now() + c.minutes * 60000).toISOString() });
         const run = store.put('daily_run', key, { date: localDate(c.timezone), timezone: c.timezone, config_version: c.config_version, mode, state: 'running', budget_id: budgetId, started_at: now() });
         const binding = store.get('settings', 'daily_scheduler', false);
         if (binding && mode === 'live') store.put('settings', binding.id, { ...binding, last_run: { id: run.id, state: 'started', at: now() } });
         return { run, next: 'next 提供有预算的任务；无任务时 report。仅读取已授权公开来源，不运行仓库代码。' };
     }
-    if (a.operation === 'next') return nextTask(store, a.run_id);
+    if (a.operation === 'next') return nextTask(store, a.run_id, a.limit);
     if (a.operation === 'observe') {
         const { run, task } = currentTask(store, a);
         noSecrets(a);
@@ -258,6 +286,10 @@ export function daily(store, a) {
                 deadline: a.deadline ? iso(a.deadline) : unchanged ? source?.deadline ?? null : null,
                 fingerprint: a.fingerprint ?? source?.fingerprint ?? null, cursor: a.cursor ?? null, reason: a.reason ?? null });
         }
+        if (task.kind === 'collect' && ['done', 'partial', 'blocked'].includes(a.state)) {
+            const b = budget(store, run), release = task.detail_limit ?? 0;
+            store.put('daily_budget', b.id, { ...b, reserved_downloaded: Math.max(0, (b.reserved_downloaded ?? 0) - release) });
+        }
         return store.put('daily_task', task.id, { ...task, state: a.state, reason: a.reason ?? null });
     }
     if (a.operation === 'ingest') {
@@ -267,9 +299,11 @@ export function daily(store, a) {
         noSecrets(a);
         if (a.cursor) assert(!/https?:\/\//i.test(a.cursor), 'private_cursor', '仅保存公开分页游标。');
         const changed = a.jobs.filter(j => { const old = scopedJobs(store, company, task.scope, run.mode).jobs.find(x => x.external_id === j.external_id); return !old || old.jd !== j.jd; }).length;
-        assert(b.downloaded + changed <= c.assessment_limit, 'daily_budget_exhausted', '今日新增正文预算已用完，保存游标后次日继续。');
+        const remaining = task.detail_limit ?? c.assessment_limit - b.downloaded;
+        assert(changed <= remaining && b.downloaded + changed <= c.assessment_limit, 'daily_budget_exhausted', '今日新增正文预算已用完，保存游标后次日继续。');
         const result = saveJobs(store, { ...a, mode: run.mode, compact: true, coverage: 'partial' });
-        store.put('daily_budget', b.id, { ...b, downloaded: b.downloaded + changed });
+        store.put('daily_budget', b.id, { ...b, downloaded: b.downloaded + changed, reserved_downloaded: Math.max(0, (b.reserved_downloaded ?? 0) - changed) });
+        store.put('daily_task', task.id, { ...task, detail_limit: remaining - changed });
         const source = sourceState(store, company, task.scope, run.mode);
         store.put('daily_source', sourceKey(company.id, task.scope, run.mode), { ...source, company_id: company.id, scope: task.scope, mode: run.mode, state: 'partial', complete: false, cursor: a.cursor ?? source?.cursor ?? null });
         return result;
@@ -311,6 +345,7 @@ export function daily(store, a) {
     }
 }
 export function dailyFlow(data) {
-    return { stage: '每日推荐', can_auto_continue: !!data.task || !!data.run, next: { owner: data.task || data.run ? 'agent' : 'user', action: data.task ? data.task.kind : 'daily',
-        prompt: data.task?.next ?? data.next ?? '查看今日公司推荐；选定后准备材料，不在后台自动投递。' } };
+    const task = data.task ?? data.tasks?.[0];
+    return { stage: '每日推荐', can_auto_continue: !!task || !!data.run, next: { owner: task || data.run ? 'agent' : 'user', action: task ? task.kind : 'daily',
+        prompt: task?.next ?? data.next ?? '查看今日公司推荐；选定后准备材料，不在后台自动投递。' } };
 }

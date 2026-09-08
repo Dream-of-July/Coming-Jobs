@@ -8,7 +8,7 @@
 
 - Install Codex Desktop and Node.js **22.13+**. The installer uses the Node executable that runs it.
 - Keep your existing candidate workspace. The default is `~/.jobos-next`; renaming the product does not rename or reset this directory.
-- Download the ZIP and `SHA256SUMS` from the same [test release](https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.9). Check the downloaded ZIP with `shasum -a 256 Coming-Jobs-v1.0.0-beta.9.zip` and compare the result with `SHA256SUMS`.
+- Download the ZIP and `SHA256SUMS` from the same [test release](https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.10). Check the downloaded ZIP with `shasum -a 256 Coming-Jobs-v1.0.0-beta.10.zip` and compare the result with `SHA256SUMS`.
 
 ## Install
 
@@ -26,7 +26,7 @@ Ask:
 
 > Start Coming Jobs. Read my current context and continue from the last confirmed step.
 
-The first `jobos1_context` result should identify **1.0.0-beta.9**. An already-running conversation can retain an older tool process; copying new files is not a hot reload.
+The first `jobos1_context` result should identify **1.0.0-beta.10**. An already-running conversation can retain an older tool process; copying new files is not a hot reload.
 
 ## Upgrade from JobOS
 
@@ -49,3 +49,5 @@ For developer-only integrity inspection, use `node scripts/install.mjs --verify-
 ## Remove or restore
 
 Disable/remove Coming Jobs from Codex's plugin UI to stop loading it. Candidate data and installation backups are separate from the plugin. Do not delete `~/.jobos-next` to uninstall the code. Configuration backups are under `~/.local/share/coming-jobs/install-backups`.
+
+Downloading or extracting the release does not update an existing Desktop installation. Run the installer, then fully quit and reopen Codex Desktop.
