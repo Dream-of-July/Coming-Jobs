@@ -1,0 +1,85 @@
+import { experience } from './experience.mjs';
+import { assert, hash, now, noSecrets, equal, iso } from './core.mjs';
+import { coveredFields } from './authorization.mjs';
+import { assertMaterialCurrent } from './materials.mjs';
+import { verifyField, checkpoint } from './applications.mjs';
+
+export function itinerary(plan) {
+    const batches = [];
+    for (const group of plan.groups) {
+        let fields = [];
+        const flush = () => { if (fields.length) batches.push({ group_key: group.key, field_keys: fields, kind: 'ordinary' }); fields = []; };
+        for (const f of group.fields.filter(f => !f.manual)) {
+            if (['free_text', 'url', 'checkbox'].includes(f.type)) { fields.push(f.key); if (fields.length === 8) flush(); }
+            else { flush(); batches.push({ group_key: group.key, field_keys: [f.key], kind: f.type }); }
+        }
+        flush();
+    }
+    // Parsing must settle before editing fields it may overwrite.
+    batches.sort((a,b) => Number(b.kind === 'file_upload') - Number(a.kind === 'file_upload'));
+    return batches.map((b,i) => ({ ...b, number: i + 1, depends_on: i ? [i] : [] }));
+}
+export function executionCheckpoint(store, a) {
+    const app = store.get('application', a.application_id), plan = store.get('plan', app.plan_id);
+    assert(app.stage === 'preparing' && plan.content_hash === a.plan_hash, 'stale_plan', '只执行当前准备中的计划。');
+    assertMaterialCurrent(store, store.get('material', app.resume_id));
+    assert(new URL(a.portal_url).origin === plan.origin && a.page_fingerprint === plan.page_fingerprint, 'page_changed', '接收方或页面结构变化，重新只读观察。');
+    assert(Math.abs(Date.now() - Date.parse(iso(a.observed_at))) < 300000, 'stale_observation', '批次操作需要五分钟内的实际页面回读。');
+    const grant = app.authorization;
+    assert(grant?.session_id === a.session_id && Date.parse(grant.expires_at) > Date.now(), 'approval_required', '缺少有效的当前会话授权。');
+    const specs = itinerary(plan), spec = specs.find(b => b.number === a.batch_number);
+    assert(spec, 'unknown_batch', '批次不属于当前计划。');
+    const key = hash([app.id, plan.id, spec.number]);
+    const prior = store.get('execution_batch', key, false);
+    const targets = plan.groups.flatMap(g => g.fields).filter(f => spec.field_keys.includes(f.key)).map(f => f.type === 'file_upload' ? { ...f, attachment_protocol: 'complete' } : f);
+    const allowed = coveredFields(app, plan);
+    assert(targets.every(f => allowed.includes(f.key)), 'approval_required', '批次包含未授权字段。');
+    noSecrets(a.groups);
+    const observations = a.groups.flatMap(g => g.fields);
+    assert(new Set(observations.map(o => o.key)).size === observations.length && observations.every(o => spec.field_keys.includes(o.key)), 'wrong_batch', '回读必须属于本批次，不能重复。');
+    if (a.phase === 'prepare') {
+        assert(!prior || prior.state === 'recovered', 'recovery_required', '批次已经执行或结果未知；先回读，禁止盲目重放。');
+        assert(spec.depends_on.every(n => store.get('execution_batch', hash([app.id,plan.id,n]), false)?.state === 'complete'), 'dependency_pending', '先完成前置批次和附件解析核验。');
+        assert(observations.length === targets.length && observations.every(o => o.read_state === 'known'), 'before_required', '执行前必须逐字段读取原值。');
+        let protectedFields = [];
+        if (spec.kind === 'file_upload') {
+            const ordinary = plan.groups.flatMap(g => g.fields).filter(f => !f.manual && f.type !== 'file_upload');
+            protectedFields = a.protected_fields ?? [];
+            assert(ordinary.every(f => protectedFields.some(o => o.key === f.key && o.read_state === 'known')), 'parse_snapshot_required', '上传前先读取可能被解析覆盖的全部普通字段。');
+            assert(protectedFields.every(o => ordinary.some(f => f.key === o.key)), 'unknown_field', '保护快照含未知字段。');
+            noSecrets(protectedFields);
+            const populated = protectedFields.filter(o => o.value !== '' && o.value !== undefined && o.value !== false).map(o => o.key);
+            const upload = targets[0];
+            if (populated.length && upload.attachment_mode !== 'attachment_only') assert(upload.restore_confirmed === true && upload.restore_ref && populated.every(k => upload.restore_keys?.includes(k)), 'parse_restore_scope_required', '解析可能覆盖现有资料；先核对确切恢复范围或使用已核验的不解析入口。');
+        }
+        if (prior) assert(observations.every(o => prior.retry_keys.includes(o.key) || verifyField(targets.find(f => f.key === o.key), o).ok), 'user_conflict', '恢复时存在未知修改。');
+        return store.put('execution_batch', key, { application_id: app.id, plan_id: plan.id, number: spec.number, state: 'pending', protected_fields: protectedFields, before: observations, targets, grant, host_version: a.host_version ?? null, started_at: now(), observations: [], scope: { origin: plan.origin, fingerprint: plan.page_fingerprint }, host_action: '执行已持久化批次；异常也返回逐字段回读。通道丢失时先 recover。' });
+    }
+    assert(prior, 'prepare_required', '执行之前必须先持久化批次。');
+    if (a.phase === 'recover') {
+        assert(observations.length === targets.length && observations.every(o => o.read_state === 'known'), 'readback_required', '先完整只读回读本批次。');
+        const retry = [], conflicts = [];
+        for (const f of targets) {
+            const current = observations.find(o => o.key === f.key);
+            if (verifyField(f,current).ok) continue;
+            if (equal(current, prior.before.find(o => o.key === f.key))) retry.push(f.key);
+            else conflicts.push(f.key);
+        }
+        if (!conflicts.length && !retry.length) {
+            const accumulated = [...store.all('execution_batch').filter(b => b.application_id === app.id && b.plan_id === plan.id && b.number !== spec.number && b.state === 'complete').flatMap(b => b.observations), ...observations];
+            const group = plan.groups.find(g => g.key === spec.group_key);
+            checkpoint(store, { ...a, groups: [{ key: group.key, before: prior.before, fields: accumulated.filter(o => group.fields.some(f => f.key === o.key)) }] });
+        }
+        return store.put('execution_batch', key, { ...prior, state: conflicts.length ? 'conflict' : retry.length ? 'recovered' : 'complete', observations, retry_keys: retry, conflicts });
+    }
+    assert(a.phase === 'complete', 'invalid_phase', '批次阶段无效。');
+    assert(prior.state === 'pending', 'recovery_required', '该批次不在待回执状态，不能覆盖已有结果。');
+    const checks = targets.map(f => ({ key: f.key, ...verifyField(f, observations.find(o => o.key === f.key)) }));
+    if (checks.every(c => c.ok) && prior.host_version && app.mode !== 'demo') {
+        experience(store, { operation: 'register', scope: { company: app.company, origin: plan.origin, stage: spec.kind === 'file_upload' ? 'attachment' : spec.kind === 'portal_select' ? 'education' : 'experience', structure: /^[a-f0-9]{64}$/.test(plan.page_fingerprint) ? plan.page_fingerprint : hash(plan.page_fingerprint), host_version: prior.host_version }, strategy: spec.kind === 'file_upload' ? 'upload_then_parse_then_edit' : spec.kind === 'portal_select' ? 'school_exact_option' : spec.kind === 'date_picker' ? 'date_dependency_order' : 'semantic_fields' });
+    }
+    const accumulated = [...store.all('execution_batch').filter(b => b.application_id === app.id && b.plan_id === plan.id && b.number !== spec.number && b.state === 'complete').flatMap(b => b.observations), ...observations];
+    const group = plan.groups.find(g => g.key === spec.group_key);
+    checkpoint(store, { ...a, groups: [{ key: group.key, before: prior.before, fields: accumulated.filter(o => group.fields.some(f => f.key === o.key)) }] });
+    return store.put('execution_batch', key, { ...prior, observations, checks, state: checks.every(c => c.ok) ? 'complete' : 'unknown', ended_at: now(), metrics: a.metrics ?? null });
+}

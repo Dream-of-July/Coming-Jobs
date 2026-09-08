@@ -1,0 +1,20 @@
+{
+  "name": "coming-jobs",
+  "interface": {
+    "displayName": "Coming Jobs \u00b7 Codex Desktop"
+  },
+  "plugins": [
+    {
+      "name": "coming-jobs",
+      "source": {
+        "source": "local",
+        "path": "./plugins/coming-jobs"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

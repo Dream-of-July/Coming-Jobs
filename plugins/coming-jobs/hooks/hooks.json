@@ -1,0 +1,50 @@
+{
+  "description": "Coming Jobs 回合指引：只读最小事件字段，不读完整聊天、不联网、不授予权限。Stop 最多补一次交接。",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --no-warnings hooks/lifecycle.mjs",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --no-warnings hooks/lifecycle.mjs",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*jobos1_.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --no-warnings hooks/lifecycle.mjs",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --no-warnings hooks/lifecycle.mjs",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

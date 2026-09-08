@@ -1,0 +1,28 @@
+name: Bug report / 问题反馈
+description: A reproducible synthetic example / 不含个人资料的复现
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not upload resumes, credentials or full chats. 请勿上传简历、凭证或完整聊天。"
+  - type: input
+    id: version
+    attributes:
+      label: Version and host / 版本与宿主
+      description: Coming Jobs build, Codex Desktop version, operating system.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction / 复现步骤
+      description: Use fake values and an example page where possible.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual / 预期与实际
+      description: Mention whether existing user edits were preserved.
+    validations:
+      required: true

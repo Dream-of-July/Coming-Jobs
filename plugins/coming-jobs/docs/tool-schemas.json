@@ -1,0 +1,4533 @@
+[
+  {
+    "name": "jobos1_experience",
+    "title": "限定页面范围的操作经验；候选经合成验证和当前只读匹配才可复用",
+    "description": "限定页面范围的操作经验；候选经合成验证和当前只读匹配才可复用。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "register"
+            },
+            "scope": {
+              "type": "object",
+              "properties": {
+                "company": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "origin": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "stage": {
+                  "type": "string",
+                  "enum": [
+                    "identity",
+                    "education",
+                    "experience",
+                    "attachment",
+                    "review"
+                  ]
+                },
+                "structure": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "host_version": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              },
+              "required": [
+                "company",
+                "origin",
+                "stage",
+                "structure",
+                "host_version"
+              ],
+              "additionalProperties": false
+            },
+            "strategy": {
+              "type": "string",
+              "enum": [
+                "semantic_fields",
+                "school_exact_option",
+                "date_dependency_order",
+                "upload_then_parse_then_edit",
+                "attachment_only"
+              ]
+            }
+          },
+          "required": [
+            "operation",
+            "scope",
+            "strategy"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "lookup"
+            },
+            "scope": {
+              "type": "object",
+              "properties": {
+                "company": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "origin": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "stage": {
+                  "type": "string",
+                  "enum": [
+                    "identity",
+                    "education",
+                    "experience",
+                    "attachment",
+                    "review"
+                  ]
+                },
+                "structure": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "host_version": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              },
+              "required": [
+                "company",
+                "origin",
+                "stage",
+                "structure",
+                "host_version"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "operation",
+            "scope"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "validate"
+            },
+            "experience_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "replay_passed": {
+              "type": "boolean"
+            },
+            "protection_passed": {
+              "type": "boolean"
+            },
+            "replay_digest": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "operation",
+            "experience_id",
+            "replay_passed",
+            "protection_passed",
+            "replay_digest"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "enable"
+            },
+            "experience_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "scope": {
+              "type": "object",
+              "properties": {
+                "company": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "origin": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "stage": {
+                  "type": "string",
+                  "enum": [
+                    "identity",
+                    "education",
+                    "experience",
+                    "attachment",
+                    "review"
+                  ]
+                },
+                "structure": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "host_version": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              },
+              "required": [
+                "company",
+                "origin",
+                "stage",
+                "structure",
+                "host_version"
+              ],
+              "additionalProperties": false
+            },
+            "observed_at": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "unique_match": {
+              "type": "boolean"
+            },
+            "readback_match": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "operation",
+            "experience_id",
+            "scope",
+            "observed_at",
+            "unique_match",
+            "readback_match"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "disable"
+            },
+            "experience_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "required": [
+            "operation",
+            "experience_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "metrics"
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_context",
+    "title": "一次读取本次任务的画像、完整申请上下文和可选下一步；不得逐字段分页",
+    "description": "一次读取本次任务的画像、完整申请上下文和可选下一步；不得逐字段分页。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "current",
+            "profile",
+            "applications",
+            "application",
+            "metrics",
+            "daily"
+          ]
+        },
+        "application_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "turn_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "since": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": true
+    }
+  },
+  {
+    "name": "jobos1_daily",
+    "title": "公司机会账本与每日五家待办；按预算增量采集、评估、跨日恢复，选定后准备材料",
+    "description": "公司机会账本与每日五家待办；按预算增量采集、评估、跨日恢复，选定后准备材料。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "configure"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "settings": {
+              "type": "object",
+              "properties": {
+                "timezone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "time": {
+                  "type": "string",
+                  "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                },
+                "target_companies": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 5
+                },
+                "metadata_limit": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                "company_limit": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 20
+                },
+                "assessment_limit": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000
+                },
+                "minutes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 120
+                },
+                "expansion_limit": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "intro_days": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 90
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "confirmed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "company"
+            },
+            "company": {
+              "type": "object",
+              "properties": {
+                "company_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "aliases": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 150
+                  },
+                  "maxItems": 30
+                },
+                "scopes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "track": {
+                        "type": "string",
+                        "enum": [
+                          "campus",
+                          "internship",
+                          "experienced"
+                        ]
+                      },
+                      "campaign": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "source_url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 3000
+                      }
+                    },
+                    "required": [
+                      "track",
+                      "campaign",
+                      "source_url"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 12
+                },
+                "introduction": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1500
+                    },
+                    "source_url": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 3000
+                    },
+                    "observed_at": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    }
+                  },
+                  "required": [
+                    "text",
+                    "source_url",
+                    "observed_at"
+                  ],
+                  "additionalProperties": false
+                },
+                "priority": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 5
+                },
+                "priority_reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                },
+                "origin": {
+                  "type": "string",
+                  "enum": [
+                    "directory",
+                    "expanded"
+                  ]
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "required": [
+            "operation",
+            "company"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "opportunity"
+            },
+            "company_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "track": {
+              "type": "string",
+              "enum": [
+                "campus",
+                "internship",
+                "experienced"
+              ]
+            },
+            "campaign": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "exhausted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "official",
+                "user_report"
+              ]
+            },
+            "source_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "observed_at": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "operation",
+            "company_id",
+            "track",
+            "campaign",
+            "source",
+            "source_ref",
+            "observed_at"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "link_application"
+            },
+            "application_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "company_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "track": {
+              "type": "string",
+              "enum": [
+                "campus",
+                "internship",
+                "experienced"
+              ]
+            },
+            "campaign": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "official",
+                "user_report"
+              ]
+            },
+            "source_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "observed_at": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "operation",
+            "application_id",
+            "company_id",
+            "track",
+            "campaign",
+            "source",
+            "source_ref",
+            "observed_at"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "status"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "live",
+                "demo"
+              ]
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "start"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "live",
+                "demo"
+              ]
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "next"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "required": [
+            "operation",
+            "run_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "observe"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "done",
+                "partial",
+                "blocked"
+              ]
+            },
+            "changed": {
+              "type": "boolean"
+            },
+            "deadline": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "fingerprint": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "change_basis": {
+              "type": "string",
+              "enum": [
+                "complete_jd_manifest",
+                "revalidated_details",
+                "unknown"
+              ]
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "run_id",
+            "task_id",
+            "state"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "ingest"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "jobs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "company": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 150
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "url": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 3000
+                  },
+                  "jd": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100000
+                  },
+                  "track": {
+                    "type": "string",
+                    "enum": [
+                      "campus",
+                      "internship",
+                      "experienced"
+                    ]
+                  },
+                  "campaign": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "external_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "observed_at": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "official",
+                      "verified_platform",
+                      "platform"
+                    ]
+                  },
+                  "requirements": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "text": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 3000
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "requirement",
+                            "responsibility",
+                            "preferred"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "text",
+                        "kind"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 60
+                  },
+                  "locations": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "maxItems": 30
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "closed"
+                    ]
+                  },
+                  "deadline": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "live",
+                      "demo"
+                    ]
+                  }
+                },
+                "required": [
+                  "company",
+                  "title",
+                  "url",
+                  "jd",
+                  "track",
+                  "observed_at",
+                  "source",
+                  "mode"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 100
+            },
+            "collection": {
+              "type": "object",
+              "properties": {
+                "company": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "track": {
+                  "type": "string",
+                  "enum": [
+                    "campus",
+                    "internship",
+                    "experienced"
+                  ]
+                },
+                "campaign": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "source_url": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 3000
+                },
+                "observed_at": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100000
+                },
+                "external_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "maxItems": 100000
+                },
+                "pages_read": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "has_more": {
+                  "type": "boolean"
+                },
+                "complete": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "company",
+                "track",
+                "source_url",
+                "observed_at",
+                "total",
+                "external_ids",
+                "pages_read",
+                "has_more",
+                "complete"
+              ],
+              "additionalProperties": false
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "run_id",
+            "task_id",
+            "jobs",
+            "collection"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "assess"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "assessments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "job_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "job_hash": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "mappings": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "requirement_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "relation": {
+                          "type": "string",
+                          "enum": [
+                            "direct",
+                            "transferable",
+                            "gap",
+                            "unknown"
+                          ]
+                        },
+                        "evidence_ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          },
+                          "maxItems": 30
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "requirement_id",
+                        "relation",
+                        "evidence_ids",
+                        "reason"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 60
+                  },
+                  "eligibility": {
+                    "type": "string",
+                    "enum": [
+                      "pass",
+                      "unknown",
+                      "fail"
+                    ]
+                  },
+                  "advantages": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    },
+                    "maxItems": 8
+                  },
+                  "gaps": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    },
+                    "maxItems": 8
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "job_id",
+                  "job_hash",
+                  "mappings",
+                  "eligibility",
+                  "advantages",
+                  "gaps",
+                  "reason"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 10
+            }
+          },
+          "required": [
+            "operation",
+            "run_id",
+            "task_id",
+            "assessments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "report"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "required": [
+            "operation",
+            "run_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "acknowledge"
+            },
+            "report_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "result_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "report_id",
+            "result_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "feedback"
+            },
+            "company_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "live",
+                "demo"
+              ]
+            },
+            "decision": {
+              "type": "string",
+              "enum": [
+                "save",
+                "reject",
+                "defer"
+              ]
+            },
+            "until": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "company_id",
+            "decision",
+            "confirmed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "choose"
+            },
+            "report_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "label": {
+              "type": "string",
+              "enum": [
+                "A",
+                "B",
+                "C",
+                "D",
+                "E"
+              ]
+            },
+            "role_number": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "report_id",
+            "label",
+            "role_number",
+            "confirmed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "bind"
+            },
+            "host_success": {
+              "type": "boolean"
+            },
+            "provider_task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "target_thread_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "result_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "host_success",
+            "provider_task_id",
+            "target_thread_id",
+            "result_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "health"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "paused",
+                "failed",
+                "needs_rebind",
+                "host_reported_active"
+              ]
+            },
+            "result_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "state",
+            "result_ref"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_remember",
+    "title": "保存新信息或修正；用户直接陈述可确认，资料提取先成为提案",
+    "description": "保存新信息或修正；用户直接陈述可确认，资料提取先成为提案。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "user_statement",
+            "extracted"
+          ]
+        },
+        "facts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "value": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40000
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000
+                    },
+                    "maxItems": 100
+                  }
+                ]
+              },
+              "purposes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "matching",
+                    "resume",
+                    "form",
+                    "interview",
+                    "tracking"
+                  ]
+                },
+                "maxItems": 5
+              },
+              "scope": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "expires_at": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "sensitive_opt_in": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "key",
+              "value"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        },
+        "source_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "confirmed": {
+          "type": "boolean"
+        },
+        "user_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "question_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 150
+        }
+      },
+      "required": [
+        "mode",
+        "facts"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_profile",
+    "title": "逐题访谈、跳过、暂停、偏好及事实核对",
+    "description": "逐题访谈、跳过、暂停、偏好及事实核对。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "confirm"
+            },
+            "proposal_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "maxItems": 100
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "proposal_ids",
+            "confirmed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "question"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 150
+            },
+            "prompt": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "key",
+            "prompt"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "skip"
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "pause"
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "resume"
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "recommend"
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "preferences"
+            },
+            "preferences": {
+              "type": "object",
+              "properties": {
+                "template": {
+                  "type": "string",
+                  "enum": [
+                    "classic",
+                    "projects",
+                    "clean"
+                  ]
+                },
+                "figma": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 3000
+                },
+                "figma_node": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "timezone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "company_order": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "maxItems": 50
+                },
+                "referral_source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 3000
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "preferences",
+            "confirmed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "revoke"
+            },
+            "fact_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "fact_id",
+            "confirmed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_jobs",
+    "title": "批量保存完整 JD，或提交逐项证据匹配；不要求全站同步",
+    "description": "批量保存完整 JD，或提交逐项证据匹配；不要求全站同步。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "ingest"
+            },
+            "jobs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "company": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 150
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "url": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 3000
+                  },
+                  "jd": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100000
+                  },
+                  "track": {
+                    "type": "string",
+                    "enum": [
+                      "campus",
+                      "internship",
+                      "experienced"
+                    ]
+                  },
+                  "campaign": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "external_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "observed_at": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "official",
+                      "verified_platform",
+                      "platform"
+                    ]
+                  },
+                  "requirements": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "text": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 3000
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "requirement",
+                            "responsibility",
+                            "preferred"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "text",
+                        "kind"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 60
+                  },
+                  "locations": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "maxItems": 30
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "closed"
+                    ]
+                  },
+                  "deadline": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "live",
+                      "demo"
+                    ]
+                  }
+                },
+                "required": [
+                  "company",
+                  "title",
+                  "url",
+                  "jd",
+                  "track",
+                  "observed_at",
+                  "source",
+                  "mode"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 100
+            },
+            "coverage": {
+              "type": "string",
+              "enum": [
+                "partial",
+                "explicit_scope_complete"
+              ]
+            },
+            "collection": {
+              "type": "object",
+              "properties": {
+                "company": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "track": {
+                  "type": "string",
+                  "enum": [
+                    "campus",
+                    "internship",
+                    "experienced"
+                  ]
+                },
+                "campaign": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "source_url": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 3000
+                },
+                "observed_at": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100000
+                },
+                "external_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "maxItems": 100000
+                },
+                "pages_read": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "has_more": {
+                  "type": "boolean"
+                },
+                "complete": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "company",
+                "track",
+                "source_url",
+                "observed_at",
+                "total",
+                "external_ids",
+                "pages_read",
+                "has_more",
+                "complete"
+              ],
+              "additionalProperties": false
+            },
+            "compact": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "operation",
+            "jobs",
+            "coverage"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "assess"
+            },
+            "assessments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "job_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "job_hash": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "mappings": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "requirement_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "relation": {
+                          "type": "string",
+                          "enum": [
+                            "direct",
+                            "transferable",
+                            "gap",
+                            "unknown"
+                          ]
+                        },
+                        "evidence_ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          },
+                          "maxItems": 30
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "requirement_id",
+                        "relation",
+                        "evidence_ids",
+                        "reason"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 60
+                  },
+                  "eligibility": {
+                    "type": "string",
+                    "enum": [
+                      "pass",
+                      "unknown",
+                      "fail"
+                    ]
+                  },
+                  "advantages": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    },
+                    "maxItems": 8
+                  },
+                  "gaps": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    },
+                    "maxItems": 8
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "job_id",
+                  "job_hash",
+                  "mappings",
+                  "eligibility",
+                  "advantages",
+                  "gaps",
+                  "reason"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 100
+            }
+          },
+          "required": [
+            "operation",
+            "assessments"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_shortlist",
+    "title": "按指定公司充分发现，默认至少10个相关岗位；逐岗推荐度、理由、风险，不足明确说明",
+    "description": "按指定公司充分发现，默认至少10个相关岗位；逐岗推荐度、理由、风险，不足明确说明。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "daily"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "live",
+                "demo"
+              ]
+            },
+            "refresh": {
+              "type": "boolean"
+            },
+            "companies": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "maxItems": 50
+            },
+            "campaign": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "target_count": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 50
+            },
+            "search_complete": {
+              "type": "boolean"
+            },
+            "search_note": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "choose"
+            },
+            "batch_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "numbers": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 50
+              },
+              "maxItems": 50
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "batch_id",
+            "numbers",
+            "confirmed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "feedback"
+            },
+            "job_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "decision": {
+              "type": "string",
+              "enum": [
+                "save",
+                "reject",
+                "defer"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "until": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "job_id",
+            "decision",
+            "confirmed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_material",
+    "title": "逐岗简历：生成、渲染、真实 Figma/PDF 登记、审核、绑定",
+    "description": "逐岗简历：生成、渲染、真实 Figma/PDF 登记、审核、绑定。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "variation"
+            },
+            "material_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "content_key": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "company": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 150
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 10000
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "company_expansion",
+                "portal_length"
+              ]
+            },
+            "max_length": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 40000
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "maxItems": 50
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "material_id",
+            "content_key",
+            "company",
+            "text",
+            "reason",
+            "evidence_ids",
+            "confirmed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "baseline"
+            },
+            "material_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "sha256": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "extracted_text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100000
+            },
+            "extraction_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "education",
+                      "work",
+                      "project",
+                      "achievement",
+                      "award",
+                      "portfolio"
+                    ]
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  }
+                },
+                "required": [
+                  "key",
+                  "category",
+                  "text"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 200
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "material_id",
+            "sha256",
+            "extracted_text",
+            "extraction_ref",
+            "items",
+            "confirmed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "lineage"
+            },
+            "material_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "base_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "sha256": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "extracted_text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100000
+            },
+            "extraction_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "material_id",
+            "base_id",
+            "sha256",
+            "extracted_text",
+            "extraction_ref",
+            "confirmed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "templates"
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "draft"
+            },
+            "job_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "template": {
+              "type": "string",
+              "enum": [
+                "classic",
+                "projects",
+                "clean"
+              ]
+            },
+            "content": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "headline": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "contact": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                },
+                "links": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 3000
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "url"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 10
+                },
+                "sections": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 150
+                      },
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 10000
+                            },
+                            "evidence_ids": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              },
+                              "maxItems": 50
+                            }
+                          },
+                          "required": [
+                            "text",
+                            "evidence_ids"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 30
+                      }
+                    },
+                    "required": [
+                      "title",
+                      "items"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 12
+                }
+              },
+              "required": [
+                "name",
+                "headline",
+                "sections"
+              ],
+              "additionalProperties": false
+            },
+            "change_summary": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 3000
+            }
+          },
+          "required": [
+            "operation",
+            "job_id",
+            "content",
+            "change_summary"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "render"
+            },
+            "material_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "required": [
+            "operation",
+            "material_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "register"
+            },
+            "material_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "job_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "resume",
+                "portfolio",
+                "photo"
+              ]
+            },
+            "template": {
+              "type": "string",
+              "enum": [
+                "classic",
+                "projects",
+                "clean"
+              ]
+            },
+            "file": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "allowed_root": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "authorized": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "kind",
+            "file",
+            "authorized",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "approve"
+            },
+            "material_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "sha256": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "visual_ok": {
+              "type": "boolean"
+            },
+            "content_ok": {
+              "type": "boolean"
+            },
+            "text_quality": {
+              "type": "string",
+              "enum": [
+                "pass",
+                "limited",
+                "not_checked"
+              ]
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "material_id",
+            "sha256",
+            "visual_ok",
+            "content_ok",
+            "text_quality",
+            "confirmed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "bind"
+            },
+            "application_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "material_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "required": [
+            "operation",
+            "application_id",
+            "material_id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_plan",
+    "title": "根据实际门户结构一次准备所有区域；缺少内部 checkpoint 不阻塞",
+    "description": "根据实际门户结构一次准备所有区域；缺少内部 checkpoint 不阻塞。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "application_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "portal_url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        },
+        "page_fingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 150
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "free_text",
+                        "portal_select",
+                        "date_picker",
+                        "file_upload",
+                        "url",
+                        "checkbox",
+                        "sensitive_user_owned"
+                      ]
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "attachment_mode": {
+                      "type": "string",
+                      "enum": [
+                        "parse",
+                        "attachment_only"
+                      ]
+                    },
+                    "restore_keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 150
+                      },
+                      "maxItems": 1000
+                    },
+                    "restore_confirmed": {
+                      "type": "boolean"
+                    },
+                    "restore_ref": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    },
+                    "content_key": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "variation_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "max_bytes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100000000
+                    },
+                    "allowed_mime_types": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "application/pdf",
+                          "image/png",
+                          "image/jpeg"
+                        ]
+                      },
+                      "maxItems": 3
+                    },
+                    "attachment_protocol": {
+                      "type": "string",
+                      "enum": [
+                        "complete"
+                      ]
+                    },
+                    "max_length": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 40000
+                    },
+                    "value": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40000
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4000
+                          },
+                          "maxItems": 100
+                        }
+                      ]
+                    },
+                    "evidence_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "maxItems": 30
+                    },
+                    "material_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "option_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "locator": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "label",
+                            "role",
+                            "placeholder",
+                            "testid",
+                            "css"
+                          ]
+                        },
+                        "value": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "selected_locator": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "label",
+                            "role",
+                            "placeholder",
+                            "testid",
+                            "css"
+                          ]
+                        },
+                        "value": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "label",
+                    "type",
+                    "required"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 100
+              }
+            },
+            "required": [
+              "key",
+              "label",
+              "required",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 30
+        },
+        "required_groups": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "maxItems": 30
+        },
+        "checklist": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "group_key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "verified",
+                  "not_applicable"
+                ]
+              },
+              "observation_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              }
+            },
+            "required": [
+              "key",
+              "label",
+              "required",
+              "state"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "application_id",
+        "portal_url",
+        "page_fingerprint",
+        "groups"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_authorize",
+    "title": "记录本次具体接收方、普通字段和已审核附件的适用授权，不授予最终提交",
+    "description": "记录本次具体接收方、普通字段和已审核附件的适用授权，不授予最终提交。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "application_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "plan_hash": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "portal_url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "reuse": {
+          "type": "boolean"
+        },
+        "confirmed": {
+          "type": "boolean"
+        },
+        "user_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "application_id",
+        "plan_hash",
+        "portal_url",
+        "session_id",
+        "confirmed",
+        "user_ref"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_checkpoint",
+    "title": "每完成区域保存草稿与真实值回读；控件存在不等于填对",
+    "description": "每完成区域保存草稿与真实值回读；控件存在不等于填对。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "application_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "plan_hash": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "portal_url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        },
+        "page_fingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "observed_at": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "portal_saved": {
+          "type": "boolean"
+        },
+        "protected_fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "value": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 40000
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    "maxItems": 100
+                  }
+                ]
+              },
+              "selected": {
+                "type": "boolean"
+              },
+              "option_id": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "upload_complete": {
+                "type": "boolean"
+              },
+              "local_sha256": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "file_name": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "file_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000
+              },
+              "file_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "read_state": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unreadable"
+                ]
+              },
+              "portal_saved": {
+                "type": "boolean"
+              },
+              "file_selected": {
+                "type": "boolean"
+              },
+              "parse_complete": {
+                "type": "boolean"
+              },
+              "attachment_associated": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "key"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 1000
+        },
+        "phase": {
+          "type": "string",
+          "enum": [
+            "prepare",
+            "complete",
+            "recover"
+          ]
+        },
+        "host_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "batch_number": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3000
+        },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "agent_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 86400000
+            },
+            "tool_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 86400000
+            },
+            "human_wait_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 86400000
+            },
+            "cua_calls": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000
+            },
+            "full_snapshots": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000
+            }
+          },
+          "required": [
+            "agent_ms",
+            "tool_ms",
+            "human_wait_ms",
+            "cua_calls",
+            "full_snapshots"
+          ],
+          "additionalProperties": false
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "before": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 150
+                    },
+                    "value": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 40000
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "maxLength": 4000
+                          },
+                          "maxItems": 100
+                        }
+                      ]
+                    },
+                    "selected": {
+                      "type": "boolean"
+                    },
+                    "option_id": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "upload_complete": {
+                      "type": "boolean"
+                    },
+                    "local_sha256": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "file_name": {
+                      "type": "string",
+                      "maxLength": 300
+                    },
+                    "file_bytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100000000
+                    },
+                    "file_count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100
+                    },
+                    "read_state": {
+                      "type": "string",
+                      "enum": [
+                        "known",
+                        "unreadable"
+                      ]
+                    },
+                    "portal_saved": {
+                      "type": "boolean"
+                    },
+                    "file_selected": {
+                      "type": "boolean"
+                    },
+                    "parse_complete": {
+                      "type": "boolean"
+                    },
+                    "attachment_associated": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "key"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 100
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 150
+                    },
+                    "value": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 40000
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "maxLength": 4000
+                          },
+                          "maxItems": 100
+                        }
+                      ]
+                    },
+                    "selected": {
+                      "type": "boolean"
+                    },
+                    "option_id": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "upload_complete": {
+                      "type": "boolean"
+                    },
+                    "local_sha256": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "file_name": {
+                      "type": "string",
+                      "maxLength": 300
+                    },
+                    "file_bytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100000000
+                    },
+                    "file_count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100
+                    },
+                    "read_state": {
+                      "type": "string",
+                      "enum": [
+                        "known",
+                        "unreadable"
+                      ]
+                    },
+                    "portal_saved": {
+                      "type": "boolean"
+                    },
+                    "file_selected": {
+                      "type": "boolean"
+                    },
+                    "parse_complete": {
+                      "type": "boolean"
+                    },
+                    "attachment_associated": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "key"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 100
+              }
+            },
+            "required": [
+              "key",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 30
+        }
+      },
+      "required": [
+        "application_id",
+        "plan_hash",
+        "session_id",
+        "portal_url",
+        "page_fingerprint",
+        "observed_at",
+        "groups"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_recover",
+    "title": "比较原值、目标值和当前值，恢复草稿但不覆盖用户新修改",
+    "description": "比较原值、目标值和当前值，恢复草稿但不覆盖用户新修改。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "application_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "value": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 40000
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    "maxItems": 100
+                  }
+                ]
+              },
+              "selected": {
+                "type": "boolean"
+              },
+              "option_id": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "upload_complete": {
+                "type": "boolean"
+              },
+              "local_sha256": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "file_name": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "file_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000
+              },
+              "file_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "read_state": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unreadable"
+                ]
+              },
+              "portal_saved": {
+                "type": "boolean"
+              },
+              "file_selected": {
+                "type": "boolean"
+              },
+              "parse_complete": {
+                "type": "boolean"
+              },
+              "attachment_associated": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "key"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 1000
+        }
+      },
+      "required": [
+        "application_id",
+        "fields"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": true
+    }
+  },
+  {
+    "name": "jobos1_review",
+    "title": "基于保存的真实回读生成最终审核包，最终由用户提交",
+    "description": "基于保存的真实回读生成最终审核包，最终由用户提交。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "application_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "portal_url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        }
+      },
+      "required": [
+        "application_id",
+        "portal_url"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_handoff",
+    "title": "登录/验证码/声明/真实未知项的可恢复人工接管",
+    "description": "登录/验证码/声明/真实未知项的可恢复人工接管。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "open"
+            },
+            "application_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "login",
+                "captcha",
+                "sensitive",
+                "conflict",
+                "unknown",
+                "host_permission"
+              ]
+            },
+            "prompt": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1500
+            },
+            "reply": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "required": [
+            "operation",
+            "application_id",
+            "kind",
+            "prompt"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "resolve"
+            },
+            "application_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "completed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "application_id",
+            "completed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_outcome",
+    "title": "记录用户提交及官方页面/邮件/短信观察，不要求 checkpoint；不冒充 provider 验证",
+    "description": "记录用户提交及官方页面/邮件/短信观察，不要求 checkpoint；不冒充 provider 验证。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "application_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "stage": {
+          "type": "string",
+          "enum": [
+            "unknown",
+            "submitted",
+            "screening",
+            "assessment",
+            "interview",
+            "offer",
+            "rejected",
+            "withdrawn"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "official_portal",
+            "user_report",
+            "email",
+            "sms",
+            "import"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "background": {
+          "type": "boolean"
+        },
+        "raw_stage": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "observation_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "job_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "user_confirmed": {
+          "type": "boolean"
+        },
+        "user_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "actual_resume_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "company": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      },
+      "required": [
+        "stage",
+        "source",
+        "observed_at"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_followup",
+    "title": "全部申请的只读跟进、结构化通知和真实调度绑定",
+    "description": "全部申请的只读跟进、结构化通知和真实调度绑定。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "queue"
+            },
+            "background": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "configure"
+            },
+            "timezone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "times": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+              },
+              "maxItems": 4
+            },
+            "include_email": {
+              "type": "boolean"
+            },
+            "include_sms": {
+              "type": "boolean"
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "timezone",
+            "times",
+            "include_email",
+            "include_sms",
+            "confirmed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "bind"
+            },
+            "host_success": {
+              "type": "boolean"
+            },
+            "provider": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "provider_task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "result_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "next_run_at": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "operation",
+            "host_success",
+            "provider",
+            "provider_task_id",
+            "result_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "schedule_status"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "paused",
+                "failed",
+                "needs_rebind"
+              ]
+            },
+            "result_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "state",
+            "result_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "capability"
+            },
+            "background": {
+              "type": "boolean"
+            },
+            "company": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 150
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "available",
+                "permission_denied",
+                "not_configured",
+                "temporarily_unavailable"
+              ]
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "company",
+            "state"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "notification"
+            },
+            "background": {
+              "type": "boolean"
+            },
+            "application_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "email",
+                "sms"
+              ]
+            },
+            "reference_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "sender_label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "received_at": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "deadline": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "deadline_hours": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8760
+            },
+            "stage": {
+              "type": "string",
+              "enum": [
+                "submitted",
+                "screening",
+                "assessment",
+                "interview",
+                "offer",
+                "rejected",
+                "unknown"
+              ]
+            },
+            "action_required": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "permission_state": {
+              "type": "string",
+              "enum": [
+                "available",
+                "permission_denied",
+                "not_configured",
+                "temporarily_unavailable"
+              ]
+            }
+          },
+          "required": [
+            "operation",
+            "application_id",
+            "source",
+            "reference_id",
+            "sender_label",
+            "stage",
+            "action_required",
+            "permission_state"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_interview",
+    "title": "依据实际提交材料准备面试，基于转写复盘并提议新记忆",
+    "description": "依据实际提交材料准备面试，基于转写复盘并提议新记忆。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "context"
+            },
+            "application_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "required": [
+            "operation",
+            "application_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "prepare"
+            },
+            "application_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "round": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "questions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1500
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "evidence_ref": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "question",
+                  "reason",
+                  "evidence_ref"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 30
+            }
+          },
+          "required": [
+            "operation",
+            "application_id",
+            "round",
+            "questions"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "debrief"
+            },
+            "application_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "source_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "findings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "strength",
+                      "gap",
+                      "uncertain",
+                      "practice"
+                    ]
+                  },
+                  "point": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 3000
+                  },
+                  "locator": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "next_practice": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "kind",
+                  "point",
+                  "quote",
+                  "locator",
+                  "next_practice"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 50
+            },
+            "memory_candidates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "speaker": {
+                    "const": "candidate"
+                  },
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 150
+                  },
+                  "value": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40000
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 4000
+                        },
+                        "maxItems": 100
+                      }
+                    ]
+                  },
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 3000
+                  }
+                },
+                "required": [
+                  "speaker",
+                  "key",
+                  "value",
+                  "quote"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 30
+            }
+          },
+          "required": [
+            "operation",
+            "application_id",
+            "source_id",
+            "findings"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_workspace",
+    "title": "授权资料导入、本地看板和跨版本数据导入导出",
+    "description": "授权资料导入、本地看板和跨版本数据导入导出。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "source"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "resume",
+                "portfolio",
+                "notes",
+                "repository",
+                "memory",
+                "transcript",
+                "audio"
+              ]
+            },
+            "purposes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "matching",
+                  "resume",
+                  "form",
+                  "interview",
+                  "tracking"
+                ]
+              },
+              "maxItems": 5
+            },
+            "file": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "allowed_root": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000000
+            },
+            "authorized": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "label",
+            "kind",
+            "purposes",
+            "authorized",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "export"
+            },
+            "authorized": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "authorized",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "import"
+            },
+            "file": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "assets_dir": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "authorized": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "file",
+            "authorized",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "dashboard"
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "presentation"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "opened",
+                "failed"
+              ]
+            },
+            "result_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "view_hash": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "operation",
+            "status",
+            "result_ref"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "jobos1_finish",
+    "title": "每次真正停下前保存交接：完成了什么、下一步、明确回复方式；能继续就不要停",
+    "description": "每次真正停下前保存交接：完成了什么、下一步、明确回复方式；能继续就不要停。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "turn_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "application_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "need_user",
+            "blocked",
+            "done",
+            "paused",
+            "budget"
+          ]
+        },
+        "completed": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "blocker": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "reply": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "browser_preserved": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "session_id",
+        "turn_id",
+        "reason",
+        "completed"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  }
+]

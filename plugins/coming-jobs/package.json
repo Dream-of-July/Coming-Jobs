@@ -1,0 +1,14 @@
+{
+  "name": "coming-jobs",
+  "version": "1.0.0-beta.9",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "test": "node --no-warnings --test tests/*.test.mjs",
+    "start": "node --no-warnings src/mcp.mjs",
+    "dashboard": "node --no-warnings src/cli.mjs dashboard"
+  }
+}

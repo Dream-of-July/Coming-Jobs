@@ -1,0 +1,36 @@
+{
+  "name": "coming-jobs",
+  "version": "1.0.0-beta.9",
+  "description": "A local-first career companion. Optimized exclusively for Codex Desktop. / 为 Codex Desktop 优化的本地求职助手。",
+  "skills": "./skills",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Coming Jobs",
+    "shortDescription": "Your next chapter, with less busywork. / 少些繁琐，向下一程出发。",
+    "longDescription": "A local-first career companion for Codex Desktop. Candidate context, daily shortlists, complete resumes, recoverable forms and application tracking. Test release; final submission stays with you. / 目前仅为 Codex Desktop 优化，最终提交由你完成。",
+    "developerName": "Dream-of-July",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "开始使用 Coming Jobs。先读取已有资料与当前进度，每次只问一个必要问题，并明确告诉我下一步。",
+      "继续上次投递，不重复询问已确认的信息。"
+    ],
+    "brandColor": "#D9F46E"
+  },
+  "repository": "https://github.com/Dream-of-July/Coming-Jobs",
+  "homepage": "https://github.com/Dream-of-July/Coming-Jobs",
+  "license": "MIT",
+  "author": {
+    "name": "Dream-of-July",
+    "url": "https://github.com/Dream-of-July"
+  },
+  "keywords": [
+    "codex-desktop",
+    "career",
+    "job-search",
+    "resume"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "jobos_next": {
+      "command": "node",
+      "args": [
+        "--no-warnings",
+        "src/mcp.mjs"
+      ],
+      "tool_timeout_sec": 90
+    }
+  }
+}
