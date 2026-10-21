@@ -3,6 +3,8 @@ import { agentTasks } from './tasks.mjs';
 import { executionCheckpoint } from './execution.mjs';
 import { experience } from './experience.mjs';
 import { daily, dailySummary, dailyFlow } from './daily.mjs';
+import { comparison } from './comparison.mjs';
+import { candidateFitContext, saveFitProfile } from './fit-profile.mjs';
 import { TOOLS } from './catalog.mjs';
 import { CONTRACT, VERSION, buildId, validate, Fault, assert, hash } from './core.mjs';
 import { coverage, facts, remember, controlProfile, nextQuestion } from './profile.mjs';
@@ -24,14 +26,14 @@ export const handlers = {
             return { applications: s.all('application'), queue: queue(s) };
         const active = s.get('settings', 'focus', false);
         const activeId = a.application_id ?? (active?.kind === 'application' ? active.application_id : null);
-        return { task: active, current_application: activeId && s.get('application', activeId, false) ? applicationContext(s, activeId) : null, coverage: coverage(s), facts: facts(s, a.scope === 'profile' ? null : 'matching'), proposals: s.all('proposal').filter(p => p.state === 'proposed'),
+        return { task: active, current_application: activeId && s.get('application', activeId, false) ? applicationContext(s, activeId) : null, coverage: coverage(s), facts: facts(s, a.scope === 'profile' ? null : 'matching'), fit_context: candidateFitContext(s), proposals: s.all('proposal').filter(p => p.state === 'proposed'),
             question: nextQuestion(s), applications: s.all('application').map(({ id, company, title, stage, submission_evidence }) => ({ id, company, title, stage, submission_evidence })),
             preferences: s.get('settings', 'preferences', false), schedule: s.get('settings', 'schedule', false), daily: dailySummary(s), templates: TEMPLATES,
             capabilities: { lightweight_tasks: 'host_subagents_required', preferred_worker: 'gpt-5.6-luna', worker_reasoning: 'medium', max_workers: 3, storage: 'available', form_planning: 'available', web_search: 'host_required', browser: 'host_required', figma: 'host_connection_required',
                 chatgpt_memory: 'host_tool_or_authorized_export', transcription: 'host_required', email_sms: 'authorized_host_connector_or_manual_read', scheduler: 'host_required', final_submit: 'human_only' },
             recent_handoff: a.session_id ? s.get('turn', a.session_id, false) : null };
     },
-    material_index: materialIndex, tasks: agentTasks, experience, daily, remember, profile: controlProfile, jobs: (s, a) => a.operation === 'ingest' ? saveJobs(s, a) : assessJobs(s, a), shortlist, material: materialAction,
+    material_index: materialIndex, tasks: agentTasks, experience, daily, comparison, remember, profile: (s,a) => a.operation === 'fit_context' ? saveFitProfile(s,a) : controlProfile(s,a), jobs: (s, a) => a.operation === 'ingest' ? saveJobs(s, a) : assessJobs(s, a), shortlist, material: materialAction,
     plan: planApplication, authorize, checkpoint: (s,a) => a.phase ? executionCheckpoint(s,a) : checkpoint(s,a), recover: recovery, review, handoff, outcome: recordOutcome, followup, interview, workspace, finish: finishTurn
 };
 export function call(store, name, args = {}) {
@@ -71,7 +73,11 @@ export function call(store, name, args = {}) {
             const revision = hash(data);
             data = args.since === revision ? { unchanged: true, context_revision: revision } : { ...data, context_revision: revision };
         }
-        return { ok: true, ...meta, data, flow: name === 'jobos1_daily' && args.operation !== 'choose' ? dailyFlow(data) : guidance(store, name === 'jobos1_interview' || name === 'jobos1_followup' ? undefined : args.application_id) };
+        const independentFlow = name === 'jobos1_comparison' || name === 'jobos1_context' && args.scope === 'profile' || name === 'jobos1_profile' && args.operation === 'fit_context';
+        return { ok: true, ...meta, data, flow: independentFlow ? {
+            stage:name==='jobos1_comparison'?'公司比较':'候选资料',can_auto_continue:!!data.run||!!data.tasks?.length,
+            next:{owner:'agent',action:'independent_assessment',prompt:data.next??'先形成并封存本次独立判断，再读取旧推荐；不创建或操作申请。'}
+        } : name === 'jobos1_daily' && args.operation !== 'choose' ? dailyFlow(data) : guidance(store, name === 'jobos1_interview' || name === 'jobos1_followup' ? undefined : args.application_id) };
     }
     catch (error) {
         return { ok: false, ...meta, error: { code: error.code ?? 'local_error', message: error.code ? error.message : '本次本地操作未完成。检查 Node 版本、文件存在性与权限；不重复执行外部动作。',

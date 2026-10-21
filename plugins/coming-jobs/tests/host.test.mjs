@@ -5,6 +5,7 @@ import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { ROOT, hash } from '../src/core.mjs';
+import { TOOLS } from '../src/catalog.mjs';
 import { Store } from '../src/store.mjs';
 import { startDashboard } from '../src/web.mjs';
 import { hook } from '../hooks/lifecycle.mjs';
@@ -123,7 +124,7 @@ test('MCP initialize and strict tool call work over real stdio transport', async
         await new Promise(r => setTimeout(r, 20));
     assert.equal(replies.length, 3);
     assert.equal(replies[0].result.serverInfo.name, 'jobos_next');
-    assert.equal(replies[1].result.tools.length, 21);
+    assert.deepEqual(replies[1].result.tools.map(tool => tool.name), TOOLS.map(tool => tool.name));
     assert.equal(replies[2].result.structuredContent.contract, 'jobos/1');
 });
 test('opening an unrecognized database does not mutate it', t => {

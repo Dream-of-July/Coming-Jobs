@@ -1,19 +1,21 @@
 import { assert, consent, hash, now, iso, noSecrets, publicUrl } from './core.mjs';
 import { facts, coverage, profileDigest } from './profile.mjs';
-import { collectionStatus, saveJobs, assessJobs, createApplication } from './jobs.mjs';
-import { registerCompany, setOpportunity, opportunity, companyMatches, scopeKey, submitted, migrateCompanies, linkApplication } from './opportunities.mjs';
+import { collectionStatus, saveJobs, assessJobs, createApplication, readAssessment } from './jobs.mjs';
+import { compareFitAssessments, isRecommendable } from './fit-assessment.mjs';
+import { diffRankings, renderComparisonReport, assessmentDisposition } from './comparison.mjs';
+import { registerCompany, setOpportunity, opportunity, companyMatches, scopeKey, submitted, migrateCompanies, linkApplication, previouslyApplied } from './opportunities.mjs';
 
 export const DAILY_DEFAULTS = Object.freeze({ timezone: 'Asia/Shanghai', time: '09:00', target_companies: 5,
     metadata_limit: 20, company_limit: 5, assessment_limit: 100, minutes: 20, expansion_limit: 1, intro_days: 30 });
 const localDate = tz => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const currentDay = (date, tz) => localDate(tz) === date;
 const fresh = (time, days = 1) => !!time && Date.parse(time) <= Date.now() + 300000 && Date.now() - Date.parse(time) <= days * 86400000;
-const config = s => s.get('settings', 'daily', false);
+const config = s => {const c=s.get('settings','daily',false);return c?{...c,company_limit:Math.min(5,c.company_limit??5)}:null;};
 const runKey = (s, c, mode) => hash([s.workspace, localDate(c.timezone), c.timezone, c.config_version, mode]);
 const sourceKey = (companyId, scope, mode) => hash([companyId, scopeKey(scope), mode]);
 const eligibleScopes = (store, company, mode) => {
     const tracks = facts(store, 'matching').find(f => f.key === 'intent.tracks')?.value;
-    return company.scopes.filter(s => (!tracks || JSON.stringify(tracks).includes(s.track)) && opportunity(store, company, s, mode).state !== 'exhausted');
+    return company.scopes.filter(s => (!tracks || JSON.stringify(tracks).includes(s.track)) && !['exhausted','closed'].includes(opportunity(store, company, s, mode).state));
 };
 function sourceState(store, company, scope, mode) { return store.get('daily_source', sourceKey(company.id, scope, mode), false); }
 function scopedJobs(store, company, scope, mode) {
@@ -22,14 +24,14 @@ function scopedJobs(store, company, scope, mode) {
     return { collection, jobs };
 }
 function validAssessment(store, job) {
-    const a = store.get('assessment', job.id, false);
+    const a = readAssessment(store, job);
     return a?.job_hash === job.content_hash && a.profile_hash === profileDigest(store) ? a : null;
 }
 function scopeReady(store, run, company, scope) {
     const source = sourceState(store, company, scope, run.mode);
     const { collection, jobs } = scopedJobs(store, company, scope, run.mode);
     return source?.state === 'verified' && currentDay(source.checked_date, run.timezone) &&
-        collectionStatus(store, collection).complete && jobs.every(j => j.source === 'official' && validAssessment(store, j));
+        collectionStatus(store, collection).complete && collectionStatus(store, collection).live_verified && jobs.every(j => j.source === 'official' && validAssessment(store, j));
 }
 function candidates(store, run) {
     return store.all('company').filter(c => {
@@ -109,7 +111,7 @@ function nextTaskSingle(store, runId, blocked = new Set(), allocationSlots) {
             const source = sourceState(store, company, scope, run.mode);
             if (opportunity(store, company, scope, run.mode).state === 'needs_verification' || !currentDay(source?.checked_date, run.timezone) || source.state === 'blocked') continue;
             const { collection, jobs } = scopedJobs(store, company, scope, run.mode);
-            if (source.state !== 'verified' || !collectionStatus(store, collection).complete) {
+            if (source.state !== 'verified' || !collectionStatus(store, collection).complete || !collectionStatus(store, collection).live_verified) {
                 const available = c.assessment_limit - b.downloaded - (b.reserved_downloaded ?? 0);
                 if (attempted('collect', company, scope) || available <= 0) continue;
                 const detailLimit = allocationSlots ? Math.min(available, Math.ceil(available / allocationSlots)) : available;
@@ -163,13 +165,14 @@ function buildReport(store, run) {
             scopes.some(s => !scopeReady(store, run, company, s)) ? 'scope_review_incomplete' : null;
         if (reason) { pending.push({ company_id: company.id, company: company.name, reason }); continue; }
         const items = scopes.flatMap(scope => scopedJobs(store, company, scope, run.mode).jobs.map(job => ({ job, scope, assessment: validAssessment(store, job) })))
-            .filter(({ job: j, assessment: a }) => j.source === 'official' && j.state === 'open' && (!j.deadline || Date.parse(j.deadline) > Date.now()) && a?.eligibility !== 'fail' && a?.score >= 50 &&
-                !store.all('application').some(x => x.mode === run.mode && submitted(x) && (x.job_id === j.id || companyMatches(company, x.company) && x.job_snapshot?.external_id === j.external_id && (x.job_snapshot?.campaign ?? store.get('application_scope', x.id, false)?.campaign) === j.campaign)) &&
+            .filter(({ job: j, assessment: a }) => j.source === 'official' && j.state === 'open' && (!j.deadline || Date.parse(j.deadline) > Date.now()) && a && isRecommendable(a) &&
+                !previouslyApplied(store,j) &&
                 (() => { const f = store.get('feedback', j.id, false); return !f || f.decision === 'save' || f.decision === 'defer' && f.until && Date.parse(f.until) <= Date.now(); })())
-            .sort((a, b) => b.assessment.score - a.assessment.score || Number(a.assessment.eligibility !== 'pass') - Number(b.assessment.eligibility !== 'pass') || a.job.id.localeCompare(b.job.id))
+            .sort((a,b) => compareFitAssessments(a.assessment,b.assessment))
             .slice(0, 3).map(({ job: j, scope, assessment: a }) => ({ job_id: j.id, job_hash: j.content_hash, title: j.title, url: j.url, locations: j.locations ?? [], deadline: j.deadline ?? null,
-                score: a.score, eligibility: a.eligibility, reason: a.reason, advantages: a.advantages, gaps: a.gaps,
-                risks: [...a.gaps, ...a.mappings.filter(m => ['unknown', 'gap'].includes(m.relation)).map(m => m.reason)],
+                tier: a.tier, service_object:a.service_object, core_deliverable:a.core_deliverable, hard_gates:a.hard_gates, evidence_refs:a.evidence_refs,
+                track:j.track, campaign:j.campaign, eligibility: a.eligibility, reason: a.reason, advantages: a.advantages, gaps: a.gaps,
+                risks: [...a.gaps, ...a.mappings.filter(m => ['unknown', 'gap'].includes(m.relation)).map(m => m.reason), ...[opportunity(store,company,scope,run.mode).note].filter(Boolean)],
                 opportunity: opportunity(store, company, scope, run.mode), verified_at: sourceState(store, company, scope, run.mode).checked_at }));
         if (!items.length) { pending.push({ company_id: company.id, company: company.name, reason: 'no_matching_open_jobs' }); continue; }
         cards.push({ company_id: company.id, company: company.name, introduction: company.introduction, retained, items });
@@ -191,13 +194,40 @@ function report(store, runId) {
     assert(c && run.config_version === c.config_version && currentDay(run.date, run.timezone), 'daily_run_expired', '请先开始今天的任务。');
     reconcileTodos(store, run.mode);
     const result = buildReport(store, run);
-    if (!candidates(store, run).length) result.pending.push({ reason: 'company_scope_required', next: '从已授权目录登记仍有机会的公司和明确招聘批次；不让用户逐个提供岗位链接。' });
+    // Persist this ranking before acquiring any previous recommendation payload.
+    const ranked = result.cards.flatMap(card => card.items.map((item,i) => ({...item,company_id:card.company_id,company:card.company,rank:i+1,category:'recommendations'})));
+    const independentHash=hash([profileDigest(store),ranked]);
+    const independentId=hash([run.id,independentHash]);
+    const independent = store.get('daily_independent',independentId,false)??store.put('daily_independent',independentId, {run_id:run.id,sealed_at:now(),profile_hash:profileDigest(store),items:ranked,snapshot_hash:independentHash});
+    const priorReport = store.all('daily_report').filter(r => r.independent_snapshot_hash!==independent.snapshot_hash && store.get('daily_run',r.run_id,false)?.mode === run.mode).at(-1);
+    const diff = priorReport ? diffRankings(ranked,priorReport) : null;
+    const reviewedCompanyIds = new Set([...budget(store,run).metadata,...budget(store,run).companies]);
+    const reviewedCompanies = store.all('company').filter(c=>reviewedCompanyIds.has(c.id));
+    const deepCompanyIds=new Set([...budget(store,run).companies,...result.cards.map(card=>card.company_id)]);
+    const referenceItems = store.all('job').filter(j => j.mode === run.mode && reviewedCompanies.some(c=>deepCompanyIds.has(c.id)&&companyMatches(c,j.company))).map(job => ({job,assessment:validAssessment(store,job)})).filter(x => x.assessment);
+    const research = referenceItems.map(({job:j,assessment:a}) => {
+        const company=reviewedCompanies.find(c=>companyMatches(c,j.company));
+        const decision=assessmentDisposition(store,run,company,j,j,a);
+        if(decision.category==='recommendations'&&!scopeReady(store,run,company,j)) {decision.category='qualification_hold';decision.reason='当前完整范围或实时目录尚未核齐，已读岗位保留为阶段证据。';}
+        return {...a,job_id:j.id,company:j.company,title:j.title,track:j.track,campaign:j.campaign,locations:j.locations??[],url:j.url,
+            actual_tasks:j.requirements.filter(r=>r.kind==='responsibility').map(r=>r.text),
+            evidence_refs:a.evidence_refs.map(ref=>({...ref,text:String(facts(store,'matching').find(f=>f.id===ref.evidence_id)?.value??ref.note??'待核验来源')})),rank_reason:a.reason,...decision};
+    });
+    const completeCompanies=reviewedCompanies.filter(company=>eligibleScopes(store,company,run.mode).length&&eligibleScopes(store,company,run.mode).every(scope=>scopeReady(store,run,company,scope)));
+    const collections=store.all('collection').filter(collection=>collection.mode===run.mode&&reviewedCompanies.some(company=>companyMatches(company,collection.company)));
+    const prose = { coverage:{complete:reviewedCompanies.length>0&&completeCompanies.length===reviewedCompanies.length,completed_companies:completeCompanies.length,company_count:reviewedCompanies.length,assessed_count:research.length,listed_count:collections.reduce((n,c)=>n+c.external_ids.length,0)},
+        sealed_at:independent.sealed_at,snapshot_hash:independent.snapshot_hash,
+        recommendations:ranked.map(i=>({...i,actual_tasks:research.find(x=>x.job_id===i.job_id)?.actual_tasks??[],evidence_refs:research.find(x=>x.job_id===i.job_id)?.evidence_refs??i.evidence_refs})),
+        qualification_hold:research.filter(i=>i.category==='qualification_hold'),misjudged:research.filter(i=>i.category==='misjudged'),excluded:research.filter(i=>i.category==='excluded'),
+        reference_entries:research.filter(i=>i.category==='reference_entries'), warnings:research.flatMap(i=>i.warnings??[]).map(reason=>({reason})),
+        decisive_questions:research.flatMap(i=>i.hard_gates.filter(g=>g.source!=='preferred'&&['unknown','conflict'].includes(g.status)).map(g=>({company:i.company,title:i.title,job_id:i.job_id,question:g.note}))),diff };
+    if (!candidates(store, run).length) result.pending.push({ reason:store.all('company').length?'no_actionable_company_scope':'company_scope_required', next: '核对当前招聘范围、截止日与剩余机会，继续跟进已有申请；仅在目录缺失时登记授权范围。' });
     const semantic = result.cards.map(({ company_id, introduction, items }) => ({ company_id, introduction: introduction.text,
         items: items.map(({ verified_at, opportunity: o, ...rest }) => ({ ...rest, opportunity: { state: o.state, remaining: o.remaining } })) }));
     const digest = hash([semantic, result.pending.map(p => [p.company_id, p.reason]), result.tasks.filter(t => t.state === 'blocked').map(t => [t.kind, t.company_id, t.reason])]);
     const previous = store.get('settings', `daily_notice_${run.mode}`, false);
     const notify = previous?.digest !== digest && (result.cards.length > 0 || result.pending.length > 0 || result.tasks.some(t => t.state === 'blocked'));
-    const snapshot = store.put('daily_report', hash([run.id, digest]), { ...result, run_id: run.id, date: run.date, timezone: run.timezone, digest, created_at: now(),
+    const snapshot = store.put('daily_report', hash([run.id, digest]), { ...result, independent_snapshot_id:independent.id, independent_snapshot_hash:independent.snapshot_hash, diff, markdown:renderComparisonReport(prose), run_id: run.id, date: run.date, timezone: run.timezone, digest, created_at: now(),
         status: result.cards.length >= c.target_companies ? 'ready' : result.cards.length ? 'partial' : 'blocked',
         shortage: Math.max(0, c.target_companies - result.cards.length), budget: budget(store, run) });
     if (notify) store.put('settings', `daily_notice_${run.mode}`, { digest, report_id: snapshot.id, state: 'reserved', reserved_at: now() });
@@ -219,6 +249,7 @@ export function daily(store, a) {
     if (a.operation === 'configure') {
         consent(a.confirmed, a.user_ref);
         const old = config(store), values = { ...DAILY_DEFAULTS, ...(old?.values ?? {}), ...(a.settings ?? {}) };
+        values.company_limit=Math.min(5,values.company_limit);
         try { localDate(values.timezone); } catch { assert(false, 'invalid_timezone', '请使用有效 IANA 时区。'); }
         const enabled = a.enabled ?? old?.enabled ?? true, version = hash([values, enabled]);
         const saved = store.put('settings', 'daily', { ...values, values, enabled, config_version: version });
@@ -278,7 +309,9 @@ export function daily(store, a) {
             if (unchanged && a.state === 'done') {
                 const { collection } = scopedJobs(store, company, task.scope, run.mode);
                 assert(collection, 'collection_incomplete', '没有可复用的完整范围。');
-                store.put('collection', collection.id, { ...collection, observed_at: now() });
+                assert(a.live_entries?.length && a.live_checked_at, 'live_list_required', '推荐前须重新读取全部公开列表，并保存本次入口编号与观察时间。');
+                const refreshed = saveJobs(store,{jobs:[],mode:run.mode,coverage:'explicit_scope_complete',collection:{...collection,entries:collection.entries??[{source_url:collection.source_url,track:collection.track,campaign:collection.campaign,external_ids:collection.external_ids,complete:collection.complete,observed_at:collection.observed_at}],observed_at:now(),live_entries:a.live_entries,live_checked_at:a.live_checked_at}});
+                assert(refreshed.collection.complete && refreshed.collection.live_verified,'live_list_changed','当前目录编号或入口范围已变化，请按 changed=true 重新采集当前完整范围。');
             }
             store.put('daily_source', sourceKey(company.id, task.scope, run.mode), { ...source, company_id: company.id, scope: task.scope, mode: run.mode,
                 state: a.state === 'blocked' ? 'blocked' : a.state === 'partial' ? 'partial' : task.kind === 'collect' || unchanged ? 'verified' : 'changed',
@@ -313,7 +346,7 @@ export function daily(store, a) {
         assert(a.assessments.length === task.job_ids.length && a.assessments.every(x => task.job_ids.includes(x.job_id) && task.job_hashes[task.job_ids.indexOf(x.job_id)] === x.job_hash) && new Set(a.assessments.map(x => x.job_id)).size === task.job_ids.length, 'daily_task_mismatch', '仅评估本次已分配的完整任务。');
         const result = assessJobs(store, a);
         store.put('daily_task', task.id, { ...task, state: 'done' });
-        return { assessed: result.assessments.map(x => ({ job_id: x.job_id, score: x.score })) };
+        return { assessed: result.assessments.map(x => ({ job_id: x.job_id, tier: x.tier, eligibility: x.eligibility })) };
     }
     if (a.operation === 'report') return report(store, a.run_id);
     if (a.operation === 'acknowledge') {

@@ -3,6 +3,10 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { assert, consent, noSecrets, hash, id, now, CONTRACT, SECRET_KEY, SENSITIVE_KEY } from './core.mjs';
 import { remember } from './profile.mjs';
+import { normalizeFitAssessment } from './fit-assessment.mjs';
+import { candidateFitContext } from './fit-profile.mjs';
+
+const COMPARISON_KINDS = ['comparison_run','comparison_budget','comparison_task','comparison_scope','comparison_evaluation','comparison_receipt','comparison_snapshot','comparison_history','daily_independent'];
 export function workspace(store, a) {
     if (a.operation === 'presentation') {
         noSecrets(a.result_ref);
@@ -25,6 +29,7 @@ export function workspace(store, a) {
     if (a.operation === 'export') {
         consent(a.authorized, a.user_ref);
         const kinds = ['fact', 'proposal', 'fact_history', 'settings', 'job', 'collection', 'job_snapshot', 'assessment', 'batch', 'application', 'plan', 'draft', 'draft_history', 'feedback', 'capability', 'material', 'observation', 'notification', 'source', 'interview_pack', 'interview_review', 'company', 'opportunity', 'daily_source', 'daily_budget', 'daily_task', 'daily_run', 'daily_report', 'daily_feedback', 'daily_todo', 'application_scope', 'experience', 'execution_batch', 'baseline_history', 'execution_summary', 'material_variation', 'agent_task', 'agent_attempt', 'material_index_cache'];
+        kinds.push(...COMPARISON_KINDS);
         const records = Object.fromEntries(kinds.map(k => [k, store.all(k)]));
         const file = store.writeExport(`jobos-export-${Date.now()}.json`, { format: CONTRACT, workspace: store.workspace, created_at: now(), records });
         const assetsDir = file.replace(/\.json$/, '-assets');
@@ -55,6 +60,7 @@ export function workspace(store, a) {
         noSecrets(inspected);
         if (data.format === CONTRACT) {
             const kinds = ['fact', 'proposal', 'fact_history', 'settings', 'job', 'collection', 'job_snapshot', 'assessment', 'batch', 'application', 'plan', 'draft', 'draft_history', 'feedback', 'capability', 'material', 'observation', 'notification', 'source', 'interview_pack', 'interview_review', 'company', 'opportunity', 'daily_source', 'daily_budget', 'daily_task', 'daily_run', 'daily_report', 'daily_feedback', 'daily_todo', 'application_scope', 'experience', 'execution_batch', 'baseline_history', 'execution_summary', 'material_variation', 'agent_task', 'agent_attempt', 'material_index_cache'];
+            kinds.push(...COMPARISON_KINDS);
             assert(kinds.every(k => store.all(k).length === 0), 'restore_not_empty', '恢复备份需要空的新工作区，避免覆盖现有资料。');
             const assetRoot = a.assets_dir ?? a.file.replace(/\.json$/, '-assets');
             for (const r of [...(data.records.material ?? []), ...(data.records.source ?? [])])
@@ -66,7 +72,12 @@ export function workspace(store, a) {
             let count = 0;
             for (const k of kinds)
                 for (const raw of data.records[k] ?? []) {
-                    const r = { ...raw };
+                    let r = { ...raw };
+                    if (k === 'assessment') {
+                        // Import-time migration is conservative; never turn old scores into gates.
+                        const job = store.get('job', r.job_id ?? r.id, false) ?? { requirements: [] };
+                        r = { ...normalizeFitAssessment(r,job,candidateFitContext(store)), assessment_version:2 };
+                    }
                     if (k === 'agent_attempt' && r.state === 'running') r.state = 'interrupted';
                     if (k === 'agent_task') { r.state = 'pending'; r.attempt_id = null; r.owner = null; r.result = null; r.cache_hit = false; r.checked_ids = []; r.error_ids = []; r.review_required = []; }
                     if (k === 'experience') r.state = 'candidate';
@@ -85,7 +96,7 @@ export function workspace(store, a) {
             return { restored_records: count, external_permissions_restored: false, next: '资料已恢复；浏览器状态需要重新观察，定时任务需要在当前宿主核实绑定。' };
         }
         assert(data.format === 'jobos-transfer/1', 'unsupported_import', '需要 jobos-transfer/1 格式。', '使用所附只读转换脚本读取明确选择的旧库，或让宿主从授权资料提取同格式。不要直接改旧数据库。');
-        const result = remember(store, { mode: 'user_statement', confirmed: true, user_ref: a.user_ref, facts: (data.facts ?? []).filter(f => f.confirmed === true) });
+        const result = remember(store, { mode: 'user_statement', confirmed: true, user_ref: a.user_ref, facts: (data.facts ?? []).filter(f => f.confirmed === true).map(f=>({...f,evidence_level:f.evidence_level??'inference'})) });
         const proposed = (data.facts ?? []).filter(f => f.confirmed !== true);
         for (const f of proposed)
             store.put('proposal', id('proposed'), { ...f, state: 'proposed', scope: f.scope ?? 'global', purposes: f.purposes ?? ['matching', 'resume', 'form', 'interview'] });

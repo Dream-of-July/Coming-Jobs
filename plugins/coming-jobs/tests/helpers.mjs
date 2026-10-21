@@ -40,8 +40,35 @@ export function seedProfile(env) {
             { key: 'project.description', value: '设计可纠正的记忆交互，并访谈12人验证原型' }
         ] });
 }
-export function seedJob(env, index = 1, mode = 'demo') {
-    return env.run('jobs', { operation: 'ingest', coverage: 'partial', jobs: [{ company: '合成企业 ' + index, title: 'AI 产品经理', url: `https://jobs.example.com/role/${index}`, jd: '岗位职责：设计 AI 产品与记忆交互。\n任职要求：能够访谈用户，制作交互原型。\n加分项：智能硬件经验优先。', track: 'campus', external_id: String(index), observed_at: now(), source: 'official', mode }] }).jobs[0];
+export function reviewedFitFields(evidenceId, overrides = {}) {
+    return { eligibility: 'pass', service_object: 'consumer', core_deliverable: 'product_spec', tier: 'conditional',
+        hard_gates: [], gates_complete: true, evidence_refs: [{ evidence_id: evidenceId, level: 'self_statement' }], ...overrides };
+}
+export function collectionFixture({ company, track = 'campus', campaign, source_url = 'https://jobs.example.com/roles', external_ids = [], complete = true, observed_at = now() }) {
+    const entry = { source_url, track, ...(campaign === undefined ? {} : { campaign }), external_ids: [...external_ids], complete: true, total: external_ids.length, observed_at };
+    return { company, track, ...(campaign === undefined ? {} : { campaign }), source_url, observed_at, total: external_ids.length,
+        external_ids: [...external_ids], pages_read: 1, has_more: false, complete,
+        entries: [entry], live_entries: [{ ...entry, external_ids: [...external_ids] }], live_checked_at: observed_at };
+}
+export function seedDefaultOpportunity(env, company, scope) {
+    const existing = env.store.all('opportunity').find(rule => rule.company_id === company.id && rule.track === scope.track && rule.campaign === scope.campaign);
+    return existing ?? env.run('daily', { operation: 'opportunity', company_id: company.id, track: scope.track, campaign: scope.campaign,
+        limit: 100, source: 'official', source_ref: 'https://example.com/synthetic-rules', observed_at: now() });
+}
+export function seedCollection(env, { company, track = 'campus', campaign = 'synthetic-campus', mode = 'demo', source_url = `https://jobs.example.com/companies/${encodeURIComponent(company)}/${track}` }) {
+    const jobs = env.store.all('job').filter(job => job.company === company && job.track === track && (job.campaign ?? '') === (campaign ?? '') && job.mode === mode);
+    const scope = { track, campaign, source_url };
+    let registered = env.store.all('company').find(record => record.name === company || record.aliases.includes(company));
+    if (!registered || !registered.scopes.some(existing => existing.track === track && existing.campaign === campaign))
+        registered = env.run('daily', { operation: 'company', company: { name: registered?.name ?? company, scopes: [...(registered?.scopes ?? []), scope] } });
+    seedDefaultOpportunity(env, registered, scope);
+    return env.run('jobs', { operation: 'ingest', jobs: [], mode, coverage: 'explicit_scope_complete',
+        collection: collectionFixture({ company, track, campaign, source_url, external_ids: jobs.map(job => job.external_id) }) }).collection;
+}
+export function seedJob(env, index = 1, mode = 'demo', overrides = {}) {
+    const job = env.run('jobs', { operation: 'ingest', coverage: 'partial', jobs: [{ company: '合成企业 ' + index, title: 'AI 产品经理', url: `https://jobs.example.com/role/${index}`, jd: '岗位职责：设计 AI 产品与记忆交互。\n任职要求：能够访谈用户，制作交互原型。\n加分项：智能硬件经验优先。', track: 'campus', campaign: 'synthetic-campus', external_id: String(index), observed_at: now(), source: 'official', mode, ...overrides }] }).jobs[0];
+    seedCollection(env, { company: job.company, track: job.track, campaign: job.campaign, mode: job.mode });
+    return job;
 }
 export function seedApplication(env, mode = 'demo') {
     const profile = seedProfile(env), job = seedJob(env, 1, mode), app = createApplication(env.store, job.id, '合成用户选择');

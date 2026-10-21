@@ -1,21 +1,26 @@
 import { MATERIAL_INDEX_SCHEMA } from './material-index.mjs';
 import { tasksSchema } from './tasks.mjs';
 import { dailySchema } from './daily-schema.mjs';
+import { comparisonSchema } from './comparison-schema.mjs';
+import { fitAssessmentFields, structuredJobFields } from './fit-assessment.mjs';
+import { EVIDENCE_LEVEL, fitProfileFields } from './fit-profile.mjs';
 import { HOST_POLICY } from './policy.mjs';
 import { S, B, I, E, A, O, V, OP } from './core.mjs';
 const APPROVAL = { confirmed: B, user_ref: S(1000) };
 const PURPOSE = A(E('matching', 'resume', 'form', 'interview', 'tracking'), 5);
-const FACT = O({ key: S(150), value: V, purposes: PURPOSE, scope: S(200), expires_at: S(80), sensitive_opt_in: B }, ['key', 'value']);
+const FACT = O({ key: S(150), value: V, purposes: PURPOSE, scope: S(200), expires_at: S(80), sensitive_opt_in: B, evidence_level: EVIDENCE_LEVEL }, ['key', 'value']);
 const REQUIREMENT = O({ id: S(100), text: S(3000), kind: E('requirement', 'responsibility', 'preferred') }, ['id', 'text', 'kind']);
 const JOB = O({ company: S(150), title: S(200), url: S(3000), jd: S(100000), track: E('campus', 'internship', 'experienced'), campaign: S(300),
     external_id: S(200), observed_at: S(80), source: E('official', 'verified_platform', 'platform'), requirements: A(REQUIREMENT, 60),
-    locations: A(S(100), 30), state: E('open', 'closed'), deadline: S(80), mode: E('live', 'demo') }, ['company', 'title', 'url', 'jd', 'track', 'observed_at', 'source', 'mode']);
+    locations: A(S(100), 30), state: E('open', 'closed'), deadline: S(80), mode: E('live', 'demo'), parent_application_id: S(200), ...structuredJobFields }, ['company', 'title', 'url', 'jd', 'track', 'observed_at', 'source', 'mode']);
 const MAPPING = O({ requirement_id: S(100), relation: E('direct', 'transferable', 'gap', 'unknown'), evidence_ids: A(S(100), 30), reason: S(2000) });
 const ASSESSMENT = O({ job_id: S(100), job_hash: S(64), mappings: A(MAPPING, 60), eligibility: E('pass', 'unknown', 'fail'),
-    advantages: A(S(1000), 8), gaps: A(S(1000), 8), reason: S(2000) });
+    advantages: A(S(1000), 8), gaps: A(S(1000), 8), reason: S(2000), ...fitAssessmentFields }, ['job_id', 'job_hash', 'mappings', 'eligibility', 'advantages', 'gaps', 'reason']);
 const LOCATOR = O({ kind: E('label', 'role', 'placeholder', 'testid', 'css'), value: S(500), name: S(500) }, ['kind', 'value']);
 const CHECK = O({ key: S(150), label: S(200), group_key: S(100), required: B, state: E('pending', 'verified', 'not_applicable'), observation_ref: S(1000) }, ['key', 'label', 'required', 'state']);
-const COLLECTION = O({ company: S(150), track: E('campus', 'internship', 'experienced'), campaign: S(300), source_url: S(3000), observed_at: S(80), total: I(0, 100000), external_ids: A(S(200), 100000), pages_read: I(0, 10000), has_more: B, complete: B }, ['company', 'track', 'source_url', 'observed_at', 'total', 'external_ids', 'pages_read', 'has_more', 'complete']);
+const ENTRY_LIST = O({ source_url: S(3000), track: E('campus', 'internship', 'experienced'), campaign: S(300), external_ids: A(S(200), 100000), complete: B, observed_at: S(80), total: I(0, 100000) }, ['source_url', 'external_ids', 'complete', 'observed_at']);
+const COLLECTION = O({ company: S(150), track: E('campus', 'internship', 'experienced'), campaign: S(300), source_url: S(3000), observed_at: S(80), total: I(0, 100000), external_ids: A(S(200), 100000), pages_read: I(0, 10000), has_more: B, complete: B,
+    entries: A(ENTRY_LIST, 100), live_entries: A(ENTRY_LIST, 100), live_checked_at: S(80) }, ['company', 'track', 'source_url', 'observed_at', 'total', 'external_ids', 'pages_read', 'has_more', 'complete']);
 const FIELD = O({ key: S(150), label: S(200), type: E('free_text', 'portal_select', 'date_picker', 'file_upload', 'url', 'checkbox', 'sensitive_user_owned'),
     required: B, attachment_mode: E('parse', 'attachment_only'), restore_keys: A(S(150),1000), restore_confirmed: B, restore_ref: S(1000), content_key: S(100), variation_id: S(100), max_bytes: I(1, 100000000), allowed_mime_types: A(E('application/pdf', 'image/png', 'image/jpeg'), 3), attachment_protocol: E('complete'), max_length: I(1, 40000), value: V, evidence_ids: A(S(100), 30), material_id: S(100), option_id: S(200), locator: LOCATOR, selected_locator: LOCATOR }, ['key', 'label', 'type', 'required']);
 const OBSERVED_VALUE = { oneOf: [{ type: 'string', maxLength: 40000 }, B, { type: 'number' }, A({ type: 'string', maxLength: 4000 }, 100)] };
@@ -41,15 +46,17 @@ tool('material_index', '已授权材料索引与精确哈希文本缓存；先�
 tool('tasks', '轻量只读子任务：规划、领取、提案、主 Agent 复核与恢复；宿主执行 Luna medium', tasksSchema(ASSESSMENT));
 tool('context', '一次读取本次任务的画像、完整申请上下文和可选下一步；不得逐字段分页', O({ scope: E('current', 'profile', 'applications', 'application', 'metrics', 'daily'), application_id: S(100), session_id: S(100), turn_id: S(100), since: S(64) }, []), true);
 tool('daily', '公司机会账本与每日五家待办；按预算增量采集、评估、跨日恢复，选定后准备材料', dailySchema(JOB, COLLECTION, ASSESSMENT));
+tool('comparison', '独立公司比较：最多20家公司、累计预算与游标；先封存排序再比较历史，不创建申请', comparisonSchema(JOB, COLLECTION, ASSESSMENT));
 tool('remember', '保存新信息或修正；用户直接陈述可确认，资料提取先成为提案', O({ mode: E('user_statement', 'extracted'), facts: A(FACT, 100), source_id: S(100), confirmed: B, user_ref: S(1000), question_id: S(200), request_id: S(150) }, ['mode', 'facts']));
 tool('profile', '逐题访谈、跳过、暂停、偏好及事实核对', { oneOf: [
+        OP('fit_context', { ...fitProfileFields, ...APPROVAL }, ['confirmed', 'user_ref']),
         OP('confirm', { proposal_ids: A(S(100), 100), ...APPROVAL }), OP('question', { key: S(150), prompt: S(1000) }), OP('skip'), OP('pause'), OP('resume'), OP('recommend'),
         OP('preferences', { preferences: PREF, ...APPROVAL }), OP('revoke', { fact_id: S(100), ...APPROVAL })
     ] });
 tool('jobs', '批量保存完整 JD，或提交逐项证据匹配；不要求全站同步', { oneOf: [
-        OP('ingest', { jobs: A(JOB, 100), coverage: E('partial', 'explicit_scope_complete'), collection: COLLECTION, compact: B }, ['jobs', 'coverage']), OP('assess', { assessments: A(ASSESSMENT, 100) })
+        OP('ingest', { jobs: A(JOB, 100), coverage: E('partial', 'explicit_scope_complete'), collection: COLLECTION, compact: B, mode: E('live','demo') }, ['jobs', 'coverage']), OP('assess', { assessments: A(ASSESSMENT, 100) })
     ] });
-tool('shortlist', '按指定公司充分发现，默认至少10个相关岗位；逐岗推荐度、理由、风险，不足明确说明', { oneOf: [
+tool('shortlist', '按指定公司充分发现；按职责、证据和资格档位排序，展示理由与缺口，不凑数量', { oneOf: [
         OP('daily', { mode: E('live', 'demo'), refresh: B, companies: A(S(150), 50), campaign: S(300), target_count: I(10, 50), search_complete: B, search_note: S(2000) }, []), OP('choose', { batch_id: S(100), numbers: A(I(1, 50), 50), ...APPROVAL }),
         OP('feedback', { job_id: S(100), decision: E('save', 'reject', 'defer'), reason: S(1000), until: S(80), ...APPROVAL }, ['job_id', 'decision', 'confirmed', 'user_ref'])
     ] });
