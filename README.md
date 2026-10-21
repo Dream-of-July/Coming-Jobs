@@ -34,7 +34,7 @@ Job searching scatters your attention across company pages, resume versions, for
 | **Learn cautiously** | Keep scoped operation strategies as candidates. Reuse requires synthetic validation and a fresh read-only page match. |
 | **Close the loop** | Track recorded applications and prepare interviews against the material actually submitted, when that version is known. |
 
-**You review the material and make the final submission.** Login, verification codes and necessary declarations remain human steps. Browser access, scheduling and external research come from the authorized Codex Desktop host.
+**You review the material and make the final submission.** Initialization can request read-only recruitment email/SMS code access once. Authorized foreground login prefers email, then SMS, and hands off only when access is unavailable or a human action is required. Agreements and CAPTCHAs follow the host's current confirmation rules. Browser, mailbox, SMS and scheduling capabilities come from the authorized Codex Desktop host.
 
 ## Start with one conversation
 

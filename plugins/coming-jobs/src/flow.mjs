@@ -1,8 +1,9 @@
 import { authorizationState } from './authorization.mjs';
 import { coverage, nextQuestion, facts } from './profile.mjs';
 import { now, hash } from './core.mjs';
+import { authenticationContext } from './authentication.mjs';
 const next = (owner, action, prompt, reply = null) => ({ owner, action, prompt, reply });
-export function guidance(store, applicationId) {
+export function guidance(store, applicationId, { background = false } = {}) {
     const focus = store.get('settings', 'focus', false);
     if (!applicationId && focus?.kind === 'shortlist') {
         const batch = store.all('batch').at(-1);
@@ -32,13 +33,16 @@ export function guidance(store, applicationId) {
     const activeId = applicationId ?? store.get('settings', 'active', false)?.application_id;
     const app = activeId ? store.get('application', activeId, false) : apps.find(a => !['submitted', 'assessment', 'screening', 'interview', 'offer', 'rejected', 'withdrawn'].includes(a.stage));
     if (app) {
+        if (app.handoff?.state === 'open' && app.handoff.kind === 'login' && !background && authenticationContext(store).preferred_channels.length)
+            return { stage: '继续招聘登录', application_id: app.id,
+                next: next('agent', 'authenticate', '先读取当前登录页并核对已有授权及只读连接器状态；优先邮箱，邮箱不可用时用获准短信。验证码仅在内存临时匹配并填写，实际登录成功后才解除交接。缺读取能力、未收到本次验证码或有协议/图形验证时保存具体缺口，使用对应人工交接，不重复请求验证码。'), can_auto_continue: true };
         if (app.handoff?.state === 'open')
             return { stage: '等待你的操作', application_id: app.id,
                 next: next('user', app.handoff.kind, app.handoff.prompt, app.handoff.reply ?? '已完成，继续'), can_auto_continue: false };
         if (['submitted', 'assessment', 'screening', 'interview', 'offer', 'rejected', 'withdrawn'].includes(app.stage)) {
             const waiting = apps.find(a => a.id !== app.id && a.stage === 'preparing');
             if (waiting)
-                return guidance(store, waiting.id);
+                return guidance(store, waiting.id, { background });
             return { stage: '投递跟进', application_id: app.id,
                 next: next('user', app.stage === 'interview' ? 'interview' : 'track', app.stage === 'interview' ? '准备本次面试，使用当时实际投递的简历和岗位信息。' : '本次投递记录已保存。下一步查看全部申请的进展与待办。', app.stage === 'interview' ? '准备这场面试' : '查看全部进度'), can_auto_continue: false };
         }
@@ -52,7 +56,7 @@ export function guidance(store, applicationId) {
             return { stage: '审核简历', application_id: app.id, next: next('user', 'approve_resume', '请查看这份岗位简历。确认内容后回复“简历确认”；也可以直接指出要改的地方。', '简历确认'), can_auto_continue: false };
         const plan = app.plan_id ? store.get('plan', app.plan_id, false) : null;
         if (!plan)
-            return { stage: '观察表单', application_id: app.id, next: next('agent', 'observe_form', '复用当前浏览器页面，观察全部区域后一次准备填写计划。需要登录时才交给用户。'), can_auto_continue: true };
+            return { stage: '观察表单', application_id: app.id, next: next('agent', 'observe_form', '复用当前浏览器页面，观察全部区域后一次准备填写计划。需要登录时先按已有只读授权尝试邮箱或短信；缺权限、连接器不可读或必要人工动作时才交接。'), can_auto_continue: true };
         if (!plan.groups.some(g => g.fields.some(f => f.material?.id === material.id && f.material.sha256 === material.asset?.sha256)))
             return { stage: '同步材料', application_id: app.id, next: next('agent', 'update_plan', '本地简历已更新，先同步填写计划、门户附件与相关文案。'), can_auto_continue: true };
         const currentFacts = new Map(facts(store, 'form', `company:${app.company}`).map(f => [f.id, hash(f.value)]));

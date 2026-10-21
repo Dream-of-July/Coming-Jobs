@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 export const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-export const VERSION = '1.0.0-beta.13';
+export const VERSION = '1.0.0-beta.14';
 export const CONTRACT = 'jobos/1';
 export function buildId() {
     try {
@@ -64,7 +64,7 @@ export function portalLocation(value, allowLocal = false) {
 export const SECRET_KEY = /password|passwd|(?:^|[_.])otp(?:$|[_.])|cookie|token|api[_-]?key|id[_-]?card|passport[_-]?number|ssn|verification[_-]?code/i;
 export const SENSITIVE_KEY = /gender|birth|ethnic|religion|disability|health|marital|politic|(?:^|[_.])age(?:$|[_.])/i;
 export function noSecrets(value, key = '') {
-    assert(!SECRET_KEY.test(key), 'secret_not_supported', '密码、验证码、证件号码和会话秘密不进入 Coming Jobs 数据库。', '请由用户直接在官方页面处理该字段。');
+    assert(!SECRET_KEY.test(key), 'secret_not_supported', '密码、验证码、证件号码和会话秘密不进入 Coming Jobs 数据库。', '验证码仅在获准的当前登录流程中临时使用；不要传入普通事实、表单计划或检查点。其他敏感字段由用户直接处理。');
     if (typeof value === 'string') {
         assert(!/-----BEGIN.*PRIVATE KEY-----|\bsk-[A-Za-z0-9_-]{20,}|(?:password|验证码|口令)\s*[:：=]\s*\S+/i.test(value), 'secret_not_supported', '文本可能包含认证秘密，请先移除。');
         assert(!/https?:\/\/\S*[?&#](?:access_token|token|secret|session|auth|code)=/i.test(value), 'private_url', '专属链接不能保存在普通记录中。');

@@ -5,11 +5,13 @@ description: "Use Coming Jobs to understand a candidate, recommend jobs, tailor 
 
 # Coming Jobs · 求职助手
 
-Coming Jobs业务数据仅使用jobos_next的jobos1_接口；允许Codex宿主检索、浏览器、Computer Use及插件维护工具。登录、验证码和最终提交由用户完成。普通已确认资料直接复用，不逐项重复提问；材料用户审核后上传更新。岗位发现先读取官网全部分页与完整JD，读取失败才考虑Computer Use，按推荐度从高到低排序后编号；缺口如实说明。授权不扩大，外部结果不明不重试；本地保存、门户保存、实际提交分别核验。
+Coming Jobs业务数据仅使用jobos_next的jobos1_接口；允许Codex宿主检索、浏览器、Computer Use及插件维护工具。登录先复用已获准会话；初始化一次申请邮箱/短信只读权限，获准后邮箱优先读取并填写本次验证码，短信其次；读取不到才交接。验证码不落库，协议与图形验证按宿主当次规则，最终提交由用户完成。普通已确认资料直接复用，不逐项重复提问；材料用户审核后上传更新。岗位发现先读取官网全部分页与完整JD，读取失败才考虑Computer Use，按推荐度从高到低排序后编号；缺口如实说明。授权不扩大，外部结果不明不重试；本地保存、门户保存、实际提交分别核验。
 
 ## 启动与恢复
 
 每个新会话调用一次 `jobos1_context`，检查 contract、build、workspace_id。优先 current_application、task、pending_groups、authorization_status、resume_sync 和当前用户意图，不能被旧申请或测评待办带偏。后续传 context_revision 为 since；unchanged 时直接复用已有内容，变化时只补读相关 scope。
+
+首次初始化读取 context.authentication，仅对未决定的邮箱/短信只读权限集中询问一次，保存明确同意或拒绝并跨会话复用；已有授权不重复申请。权限不阻塞岗位研究，缺实际读取能力时才交接。遇到登录先读 [邮箱优先登录](references/authentication.md)，不能沿用旧版“看到验证码就交给用户”的流程。
 
 普通求职不读源码、不扫描数据库或电脑、不反复读 Skill。插件维护允许终端、编辑和测试，不执行求职 finish 要求。不设模型门槛。工具加载失败仅诊断一次，查本插件 docs/安装.md 中的确定命令；不能用旧工具冒充新工具。安装后必须以新进程构建和新会话工具返回区分静态验证与真实加载，不能声称热更新成功。
 
@@ -65,6 +67,8 @@ plan 必须包含完整 checklist：岗位/志愿/名额与城市、面试安排
 ### Computer Use 与授权
 
 开始材料准备或网页填写时读取 [完整材料与当前宿主批次](references/execution.md)，使用显式基线和 prepare → 执行 → complete；恢复先只读。
+
+登录按已有授权自动读取并填写本次邮箱/短信验证码，优先邮箱；复用同一候选账号，不因换登录方式创建重复身份。协议、图形验证或其他宿主要求当次确认的动作单独处理，通用只读授权不能替代；实际提交仍由用户完成。
 
 先读当前宿主文档，使用用户现有获准浏览器与会话。browserCapabilities 只报告实际接口；不要把标准 Playwright 当作宿主完整 API。DOM、AX、视觉及上传通过宿主支持的适配执行，不开启其他浏览器绕过限制。
 

@@ -76,7 +76,7 @@ tool('checkpoint', '每完成区域保存草稿与真实值回读；控件存在
     groups: A(O({ key: S(100), before: A(OBSERVED, 100), fields: A(OBSERVED, 100) }, ['key', 'fields']), 30) }, ['application_id', 'plan_hash', 'session_id', 'portal_url', 'page_fingerprint', 'observed_at', 'groups']));
 tool('recover', '比较原值、目标值和当前值，恢复草稿但不覆盖用户新修改', O({ application_id: S(100), fields: A(OBSERVED, 1000) }), true);
 tool('review', '基于保存的真实回读生成最终审核包，最终由用户提交', O({ application_id: S(100), portal_url: S(3000) }));
-tool('handoff', '登录/验证码/声明/真实未知项的可恢复人工接管', { oneOf: [
+tool('handoff', '缺登录权限或验证码读取能力、声明及真实未知项的可恢复人工接管', { oneOf: [
         OP('open', { application_id: S(100), kind: E('login', 'captcha', 'sensitive', 'conflict', 'unknown', 'host_permission'), prompt: S(1500), reply: S(300) }, ['application_id', 'kind', 'prompt']),
         OP('resolve', { application_id: S(100), completed: B, user_ref: S(1000) })
     ] });
