@@ -16,7 +16,7 @@ export function facts(store, purpose, scope = 'global') {
     return available.filter(f => f.scope === scope || !available.some(other => other.key === f.key && other.scope === scope));
 }
 export function profileDigest(store, purpose = 'matching') {
-    return hash(facts(store, purpose).map(f => [f.id, f.value, f.purposes, f.scope]).sort((a, b) => a[0].localeCompare(b[0])));
+    return hash(facts(store, purpose).map(f => [f.id, f.value, f.purposes, f.scope, f.evidence_level ?? 'unknown']).sort((a, b) => a[0].localeCompare(b[0])));
 }
 export function coverage(store) {
     const fs = facts(store, 'matching'), keys = new Set(fs.map(f => f.key));
@@ -63,7 +63,8 @@ export function remember(store, a) {
         const current = store.get('fact', key, false);
         const state = a.mode === 'user_statement' ? 'confirmed' : 'proposed';
         const record = { key: entry.key, value: entry.value, scope, purposes, sensitive, state,
-            source_id: source?.id ?? null, source_ref: a.user_ref ?? source?.label, expires_at: entry.expires_at ?? null };
+            source_id: source?.id ?? null, source_ref: a.user_ref ?? source?.label, expires_at: entry.expires_at ?? null,
+            evidence_level: entry.evidence_level ?? (a.mode === 'user_statement' ? 'self_statement' : 'ai_summary') };
         if (state === 'proposed') {
             const proposalId = 'proposed_' + hash(record).slice(0, 24);
             out.push(store.put('proposal', proposalId, { ...record, conflicts_with: current?.id ?? null }));

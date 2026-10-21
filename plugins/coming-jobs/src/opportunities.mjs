@@ -29,7 +29,10 @@ export function setOpportunity(store, a) {
     const old = store.get('opportunity', key, false);
     assert(!old || Date.parse(old.observed_at) <= Date.parse(observed), 'stale_observation', '较旧规则不能覆盖较新核验。');
     return store.put('opportunity', key, { company_id: company.id, track: a.track, campaign: a.campaign,
-        limit: a.limit ?? null, exhausted: a.exhausted ?? false, source: a.source, source_ref: a.source_ref, observed_at: observed });
+        limit: Object.hasOwn(a, 'limit') ? a.limit : old?.limit ?? null, exhausted: a.exhausted ?? old?.exhausted ?? false,
+        can_change: a.can_change ?? old?.can_change ?? null, volunteer_order: a.volunteer_order ?? old?.volunteer_order ?? 'unknown',
+        deadline: Object.hasOwn(a, 'deadline') ? a.deadline === null ? null : iso(a.deadline) : old?.deadline ?? null,
+        source: a.source, source_ref: a.source_ref, observed_at: observed });
 }
 export function opportunity(store, company, scope, mode = 'live') {
     const rule = store.get('opportunity', hash([company.id, scope.track, scope.campaign]), false);
@@ -39,14 +42,35 @@ export function opportunity(store, company, scope, mode = 'live') {
         const j = { ...(a.job_snapshot ?? {}), ...(store.get('application_scope', a.id, false) ?? {}) };
         if (j.track && j.track !== scope.track || j.campaign && j.campaign !== scope.campaign) continue;
         if (!j.track || !j.campaign || !submitted(a)) { uncertain.push(a.id); continue; }
-        used.add(j.external_id ?? a.job_id ?? a.id);
+        used.add(j.parent_application_id ?? j.external_id ?? a.job_id ?? a.id);
     }
     const remaining = rule?.limit == null ? null : Math.max(0, rule.limit - used.size);
     const exhausted = !!rule?.exhausted || remaining === 0;
-    return { state: exhausted ? 'exhausted' : uncertain.length || used.size && remaining === null ? 'needs_verification' : 'available',
+    const rulesVerified = !!rule && Date.now() - Date.parse(rule.observed_at) <= 7 * 86400000;
+    const closed=!!rule?.deadline&&Date.parse(rule.deadline)<=Date.now();
+    return { state: closed ? 'closed' : exhausted ? 'exhausted' : uncertain.length || remaining === null || !rulesVerified ? 'needs_verification' : 'available',
         remaining: uncertain.length ? null : remaining, used: used.size, uncertain_application_ids: uncertain,
         rule_source: rule?.source ?? 'unknown', rule_observed_at: rule?.observed_at ?? null,
-        note: exhausted ? '本批次机会已用完，继续跟进已有申请。' : uncertain.length ? '历史批次或提交结果不明确，先只读核验剩余机会。' : remaining === null ? '剩余名额未知，开始投递前核验官方规则。' : null };
+        rule_source_ref: rule?.source_ref ?? null, can_change: rule?.can_change ?? null, volunteer_order: rule?.volunteer_order ?? 'unknown', deadline: rule?.deadline ?? null,
+        rules_verification: rulesVerified ? 'verified' : 'unreviewed',
+        applications: apps.map(a => {const observation=(a.observations??[]).map(key=>store.get('observation',key,false)).filter(Boolean).sort((a,b)=>Date.parse(b.observed_at)-Date.parse(a.observed_at))[0];return { id: a.id, job_id: a.job_id, external_id: a.job_snapshot?.external_id ?? null, stage: a.stage, raw_stage: observation?.raw_stage??a.raw_stage??null, observed_at:observation?.observed_at??a.last_observation_at??null };}),
+        note: [closed ? '本招聘项目已超过官方截止日，继续跟进已有申请。' : exhausted ? '本批次机会已用完，继续跟进已有申请。' : uncertain.length ? '历史批次或提交结果不明确，先只读核验剩余机会。' : remaining === null ? '剩余名额未知，开始投递前核验官方规则。' : null,
+            !rulesVerified ? '投递规则未复核（缺失或核验已超过7天）。' : null].filter(Boolean).join(' ') || null };
+}
+
+/** Shared by comparison, shortlist, daily and selection: never infer a returned quota. */
+export function jobOpportunity(store, job) {
+    const company = store.all('company').find(c => companyMatches(c, job.company));
+    return company ? opportunity(store, company, job, job.mode ?? 'live') : { state: 'needs_verification', remaining: null, rules_verification: 'unreviewed', note: '投递规则未复核（公司未登记）。' };
+}
+
+export function previouslyApplied(store, job) {
+    const company = store.all('company').find(c => companyMatches(c, job.company));
+    return store.all('application').some(a => submitted(a) && (a.mode ?? 'live') === (job.mode ?? 'live') &&
+        (a.job_id === job.id || (company ? companyMatches(company, a.company) : normal(a.company) === normal(job.company)) &&
+            (a.job_snapshot?.parent_application_id ?? a.job_snapshot?.external_id) === (job.parent_application_id ?? job.external_id) &&
+            (a.job_snapshot?.track ?? store.get('application_scope', a.id, false)?.track) === job.track &&
+            (a.job_snapshot?.campaign ?? store.get('application_scope', a.id, false)?.campaign ?? '') === (job.campaign ?? '')));
 }
 /** Only derive exact labels and explicit campaign data; never infer a historical batch. */
 export function migrateCompanies(store) {

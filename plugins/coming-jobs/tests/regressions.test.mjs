@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { writeFileSync, readFileSync, symlinkSync, mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { environment, seedProfile, seedApplication, seedJob } from './helpers.mjs';
+import { environment, seedProfile, seedApplication, seedJob, reviewedFitFields } from './helpers.mjs';
 import { call } from '../src/service.mjs';
 import { Store } from '../src/store.mjs';
 import { guidance } from '../src/flow.mjs';
@@ -115,12 +115,13 @@ test('interview guidance has a concrete practice action instead of resuming an u
     e.store.put('settings', 'focus', { kind: 'interview' });
     assert.equal(guidance(e.store).next.reply, '开始练习第一题');
 });
-test('a changed JD cannot reuse a stale score in a new daily batch', t => {
+test('a changed JD cannot reuse a stale assessment in a new daily batch', t => {
     const e = environment(t);
     seedProfile(e);
     const j = seedJob(e);
     const f = e.store.all('fact').find(f => f.key === 'project.anchor');
-    e.run('jobs', { operation: 'assess', assessments: [{ job_id: j.id, job_hash: j.content_hash, eligibility: 'pass', mappings: j.requirements.map(r => ({ requirement_id: r.id, relation: 'direct', evidence_ids: [f.id], reason: 'fixture' })), advantages: [], gaps: [], reason: 'fixture' }] });
+    e.run('jobs', { operation: 'assess', assessments: [{ job_id: j.id, job_hash: j.content_hash, ...reviewedFitFields(f.id), mappings: j.requirements.map(r => ({ requirement_id: r.id, relation: 'direct', evidence_ids: [f.id], reason: 'fixture' })), advantages: [], gaps: [], reason: 'fixture' }] });
+    assert.equal(e.run('shortlist', { operation: 'daily', mode: 'demo' }).items.length, 1);
     e.store.put('job', j.id, { ...j, content_hash: 'changed-jd' });
     assert.equal(e.run('shortlist', { operation: 'daily', mode: 'demo' }).items.length, 0);
 });

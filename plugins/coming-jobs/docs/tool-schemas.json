@@ -740,6 +740,142 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 2000
+                      },
+                      "service_object": {
+                        "type": "string",
+                        "enum": [
+                          "consumer",
+                          "enterprise_user",
+                          "internal_team",
+                          "developer",
+                          "player",
+                          "merchant",
+                          "mixed",
+                          "unclear"
+                        ]
+                      },
+                      "core_deliverable": {
+                        "type": "string",
+                        "enum": [
+                          "product_spec",
+                          "interaction_design",
+                          "visual",
+                          "research",
+                          "code",
+                          "operations",
+                          "content",
+                          "mixed"
+                        ]
+                      },
+                      "hard_gates": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "gate": {
+                              "type": "string",
+                              "enum": [
+                                "graduation",
+                                "degree",
+                                "major",
+                                "language",
+                                "tool",
+                                "portfolio",
+                                "availability",
+                                "city",
+                                "quota"
+                              ]
+                            },
+                            "source": {
+                              "type": "string",
+                              "enum": [
+                                "requirement",
+                                "preferred",
+                                "structured_field"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "meets",
+                                "fails",
+                                "unknown",
+                                "conflict"
+                              ]
+                            },
+                            "note": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000
+                            },
+                            "requirement_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "gate",
+                            "source",
+                            "status",
+                            "note"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 100
+                      },
+                      "tier": {
+                        "type": "string",
+                        "enum": [
+                          "priority",
+                          "conditional",
+                          "adjacent",
+                          "qualification_hold",
+                          "misjudged",
+                          "excluded"
+                        ]
+                      },
+                      "evidence_refs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "evidence_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            },
+                            "level": {
+                              "type": "string",
+                              "enum": [
+                                "self_statement",
+                                "original_artifact",
+                                "third_party",
+                                "ai_summary",
+                                "inference"
+                              ]
+                            },
+                            "note": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000
+                            }
+                          },
+                          "required": [
+                            "evidence_id",
+                            "level"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 200
+                      },
+                      "rank": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      },
+                      "gates_complete": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -1027,7 +1163,7 @@
                 "company_limit": {
                   "type": "integer",
                   "minimum": 1,
-                  "maximum": 20
+                  "maximum": 5
                 },
                 "assessment_limit": {
                   "type": "integer",
@@ -1221,12 +1357,42 @@
               "maxLength": 300
             },
             "limit": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 100
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "exhausted": {
               "type": "boolean"
+            },
+            "can_change": {
+              "type": "boolean"
+            },
+            "volunteer_order": {
+              "type": "string",
+              "enum": [
+                "ordered",
+                "parallel",
+                "unknown"
+              ]
+            },
+            "deadline": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "source": {
               "type": "string",
@@ -1422,6 +1588,67 @@
                 "unknown"
               ]
             },
+            "live_entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "source_url": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 3000
+                  },
+                  "track": {
+                    "type": "string",
+                    "enum": [
+                      "campus",
+                      "internship",
+                      "experienced"
+                    ]
+                  },
+                  "campaign": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "external_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "maxItems": 100000
+                  },
+                  "complete": {
+                    "type": "boolean"
+                  },
+                  "observed_at": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "total": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000
+                  }
+                },
+                "required": [
+                  "source_url",
+                  "external_ids",
+                  "complete",
+                  "observed_at"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 100
+            },
+            "live_checked_at": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
             "cursor": {
               "type": "string",
               "minLength": 1,
@@ -1573,6 +1800,95 @@
                       "live",
                       "demo"
                     ]
+                  },
+                  "parent_application_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "graduation_min_year": {
+                    "type": "integer",
+                    "minimum": 1900,
+                    "maximum": 2200
+                  },
+                  "graduation_max_year": {
+                    "type": "integer",
+                    "minimum": 1900,
+                    "maximum": 2200
+                  },
+                  "required_degree": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "required_majors": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    },
+                    "maxItems": 100
+                  },
+                  "availability": {
+                    "type": "object",
+                    "properties": {
+                      "location": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "latest_start": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      },
+                      "days_per_week": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 7
+                      },
+                      "continuous_months": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 120
+                      }
+                    },
+                    "required": [],
+                    "additionalProperties": false
+                  },
+                  "qualification_conflicts": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "gate": {
+                          "type": "string",
+                          "enum": [
+                            "graduation",
+                            "degree",
+                            "major",
+                            "language",
+                            "tool",
+                            "portfolio",
+                            "availability",
+                            "city",
+                            "quota"
+                          ]
+                        },
+                        "note": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "gate",
+                        "note"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 100
                   }
                 },
                 "required": [
@@ -1644,6 +1960,123 @@
                 },
                 "complete": {
                   "type": "boolean"
+                },
+                "entries": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "source_url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 3000
+                      },
+                      "track": {
+                        "type": "string",
+                        "enum": [
+                          "campus",
+                          "internship",
+                          "experienced"
+                        ]
+                      },
+                      "campaign": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "external_ids": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "maxItems": 100000
+                      },
+                      "complete": {
+                        "type": "boolean"
+                      },
+                      "observed_at": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "total": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000
+                      }
+                    },
+                    "required": [
+                      "source_url",
+                      "external_ids",
+                      "complete",
+                      "observed_at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 100
+                },
+                "live_entries": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "source_url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 3000
+                      },
+                      "track": {
+                        "type": "string",
+                        "enum": [
+                          "campus",
+                          "internship",
+                          "experienced"
+                        ]
+                      },
+                      "campaign": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "external_ids": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "maxItems": 100000
+                      },
+                      "complete": {
+                        "type": "boolean"
+                      },
+                      "observed_at": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "total": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000
+                      }
+                    },
+                    "required": [
+                      "source_url",
+                      "external_ids",
+                      "complete",
+                      "observed_at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 100
+                },
+                "live_checked_at": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
                 }
               },
               "required": [
@@ -1779,6 +2212,142 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 2000
+                  },
+                  "service_object": {
+                    "type": "string",
+                    "enum": [
+                      "consumer",
+                      "enterprise_user",
+                      "internal_team",
+                      "developer",
+                      "player",
+                      "merchant",
+                      "mixed",
+                      "unclear"
+                    ]
+                  },
+                  "core_deliverable": {
+                    "type": "string",
+                    "enum": [
+                      "product_spec",
+                      "interaction_design",
+                      "visual",
+                      "research",
+                      "code",
+                      "operations",
+                      "content",
+                      "mixed"
+                    ]
+                  },
+                  "hard_gates": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "gate": {
+                          "type": "string",
+                          "enum": [
+                            "graduation",
+                            "degree",
+                            "major",
+                            "language",
+                            "tool",
+                            "portfolio",
+                            "availability",
+                            "city",
+                            "quota"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "requirement",
+                            "preferred",
+                            "structured_field"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "meets",
+                            "fails",
+                            "unknown",
+                            "conflict"
+                          ]
+                        },
+                        "note": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        },
+                        "requirement_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        }
+                      },
+                      "required": [
+                        "gate",
+                        "source",
+                        "status",
+                        "note"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 100
+                  },
+                  "tier": {
+                    "type": "string",
+                    "enum": [
+                      "priority",
+                      "conditional",
+                      "adjacent",
+                      "qualification_hold",
+                      "misjudged",
+                      "excluded"
+                    ]
+                  },
+                  "evidence_refs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "evidence_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        },
+                        "level": {
+                          "type": "string",
+                          "enum": [
+                            "self_statement",
+                            "original_artifact",
+                            "third_party",
+                            "ai_summary",
+                            "inference"
+                          ]
+                        },
+                        "note": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "evidence_id",
+                        "level"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 200
+                  },
+                  "rank": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000
+                  },
+                  "gates_complete": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -2011,6 +2580,927 @@
     }
   },
   {
+    "name": "jobos1_comparison",
+    "title": "独立公司比较：最多20家公司、累计预算与游标；先封存排序再比较历史，不创建申请",
+    "description": "独立公司比较：最多20家公司、累计预算与游标；先封存排序再比较历史，不创建申请。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "inputSchema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "start"
+            },
+            "comparison_key": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 150
+            },
+            "company_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "maxItems": 20,
+              "minItems": 1
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "live",
+                "demo"
+              ]
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "details": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "assessments": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "batch_size": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "timezone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "required": [
+            "operation",
+            "comparison_key",
+            "company_ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "next"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "operation",
+            "run_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "ingest"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "jobs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "company": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 150
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "url": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 3000
+                  },
+                  "jd": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100000
+                  },
+                  "track": {
+                    "type": "string",
+                    "enum": [
+                      "campus",
+                      "internship",
+                      "experienced"
+                    ]
+                  },
+                  "campaign": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "external_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "observed_at": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "official",
+                      "verified_platform",
+                      "platform"
+                    ]
+                  },
+                  "requirements": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "text": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 3000
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "requirement",
+                            "responsibility",
+                            "preferred"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "text",
+                        "kind"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 60
+                  },
+                  "locations": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "maxItems": 30
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "closed"
+                    ]
+                  },
+                  "deadline": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "live",
+                      "demo"
+                    ]
+                  },
+                  "parent_application_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "graduation_min_year": {
+                    "type": "integer",
+                    "minimum": 1900,
+                    "maximum": 2200
+                  },
+                  "graduation_max_year": {
+                    "type": "integer",
+                    "minimum": 1900,
+                    "maximum": 2200
+                  },
+                  "required_degree": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "required_majors": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    },
+                    "maxItems": 100
+                  },
+                  "availability": {
+                    "type": "object",
+                    "properties": {
+                      "location": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "latest_start": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      },
+                      "days_per_week": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 7
+                      },
+                      "continuous_months": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 120
+                      }
+                    },
+                    "required": [],
+                    "additionalProperties": false
+                  },
+                  "qualification_conflicts": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "gate": {
+                          "type": "string",
+                          "enum": [
+                            "graduation",
+                            "degree",
+                            "major",
+                            "language",
+                            "tool",
+                            "portfolio",
+                            "availability",
+                            "city",
+                            "quota"
+                          ]
+                        },
+                        "note": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "gate",
+                        "note"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 100
+                  }
+                },
+                "required": [
+                  "company",
+                  "title",
+                  "url",
+                  "jd",
+                  "track",
+                  "observed_at",
+                  "source",
+                  "mode"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 100
+            },
+            "collection": {
+              "type": "object",
+              "properties": {
+                "company": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "track": {
+                  "type": "string",
+                  "enum": [
+                    "campus",
+                    "internship",
+                    "experienced"
+                  ]
+                },
+                "campaign": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "source_url": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 3000
+                },
+                "observed_at": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100000
+                },
+                "external_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "maxItems": 100000
+                },
+                "pages_read": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "has_more": {
+                  "type": "boolean"
+                },
+                "complete": {
+                  "type": "boolean"
+                },
+                "entries": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "source_url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 3000
+                      },
+                      "track": {
+                        "type": "string",
+                        "enum": [
+                          "campus",
+                          "internship",
+                          "experienced"
+                        ]
+                      },
+                      "campaign": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "external_ids": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "maxItems": 100000
+                      },
+                      "complete": {
+                        "type": "boolean"
+                      },
+                      "observed_at": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "total": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000
+                      }
+                    },
+                    "required": [
+                      "source_url",
+                      "external_ids",
+                      "complete",
+                      "observed_at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 100
+                },
+                "live_entries": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "source_url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 3000
+                      },
+                      "track": {
+                        "type": "string",
+                        "enum": [
+                          "campus",
+                          "internship",
+                          "experienced"
+                        ]
+                      },
+                      "campaign": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "external_ids": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "maxItems": 100000
+                      },
+                      "complete": {
+                        "type": "boolean"
+                      },
+                      "observed_at": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "total": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000
+                      }
+                    },
+                    "required": [
+                      "source_url",
+                      "external_ids",
+                      "complete",
+                      "observed_at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 100
+                },
+                "live_checked_at": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "required": [
+                "company",
+                "track",
+                "source_url",
+                "observed_at",
+                "total",
+                "external_ids",
+                "pages_read",
+                "has_more",
+                "complete"
+              ],
+              "additionalProperties": false
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "run_id",
+            "task_id",
+            "jobs",
+            "collection"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "assess"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "assessments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "job_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "job_hash": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "mappings": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "requirement_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "relation": {
+                          "type": "string",
+                          "enum": [
+                            "direct",
+                            "transferable",
+                            "gap",
+                            "unknown"
+                          ]
+                        },
+                        "evidence_ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          },
+                          "maxItems": 30
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "requirement_id",
+                        "relation",
+                        "evidence_ids",
+                        "reason"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 60
+                  },
+                  "eligibility": {
+                    "type": "string",
+                    "enum": [
+                      "pass",
+                      "unknown",
+                      "fail"
+                    ]
+                  },
+                  "advantages": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    },
+                    "maxItems": 8
+                  },
+                  "gaps": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    },
+                    "maxItems": 8
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "service_object": {
+                    "type": "string",
+                    "enum": [
+                      "consumer",
+                      "enterprise_user",
+                      "internal_team",
+                      "developer",
+                      "player",
+                      "merchant",
+                      "mixed",
+                      "unclear"
+                    ]
+                  },
+                  "core_deliverable": {
+                    "type": "string",
+                    "enum": [
+                      "product_spec",
+                      "interaction_design",
+                      "visual",
+                      "research",
+                      "code",
+                      "operations",
+                      "content",
+                      "mixed"
+                    ]
+                  },
+                  "hard_gates": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "gate": {
+                          "type": "string",
+                          "enum": [
+                            "graduation",
+                            "degree",
+                            "major",
+                            "language",
+                            "tool",
+                            "portfolio",
+                            "availability",
+                            "city",
+                            "quota"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "requirement",
+                            "preferred",
+                            "structured_field"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "meets",
+                            "fails",
+                            "unknown",
+                            "conflict"
+                          ]
+                        },
+                        "note": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        },
+                        "requirement_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        }
+                      },
+                      "required": [
+                        "gate",
+                        "source",
+                        "status",
+                        "note"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 100
+                  },
+                  "tier": {
+                    "type": "string",
+                    "enum": [
+                      "priority",
+                      "conditional",
+                      "adjacent",
+                      "qualification_hold",
+                      "misjudged",
+                      "excluded"
+                    ]
+                  },
+                  "evidence_refs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "evidence_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        },
+                        "level": {
+                          "type": "string",
+                          "enum": [
+                            "self_statement",
+                            "original_artifact",
+                            "third_party",
+                            "ai_summary",
+                            "inference"
+                          ]
+                        },
+                        "note": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "evidence_id",
+                        "level"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 200
+                  },
+                  "rank": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000
+                  },
+                  "gates_complete": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "job_id",
+                  "job_hash",
+                  "mappings",
+                  "eligibility",
+                  "advantages",
+                  "gaps",
+                  "reason"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 100
+            }
+          },
+          "required": [
+            "operation",
+            "run_id",
+            "task_id",
+            "assessments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "observe"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "done",
+                "collect",
+                "partial",
+                "blocked"
+              ]
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          },
+          "required": [
+            "operation",
+            "run_id",
+            "task_id",
+            "state"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "seal"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "allow_partial": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          },
+          "required": [
+            "operation",
+            "run_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "previous"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "previous_run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "previous_batch_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "required": [
+            "operation",
+            "run_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "report"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "required": [
+            "operation",
+            "run_id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
     "name": "jobos1_remember",
     "title": "保存新信息或修正；用户直接陈述可确认，资料提取先成为提案",
     "description": "保存新信息或修正；用户直接陈述可确认，资料提取先成为提案。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
@@ -2084,6 +3574,16 @@
               },
               "sensitive_opt_in": {
                 "type": "boolean"
+              },
+              "evidence_level": {
+                "type": "string",
+                "enum": [
+                  "self_statement",
+                  "original_artifact",
+                  "third_party",
+                  "ai_summary",
+                  "inference"
+                ]
               }
             },
             "required": [
@@ -2137,6 +3637,146 @@
     "description": "逐题访谈、跳过、暂停、偏好及事实核对。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
     "inputSchema": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "fit_context"
+            },
+            "graduation_year": {
+              "type": "integer",
+              "minimum": 1900,
+              "maximum": 2200
+            },
+            "availability": {
+              "type": "object",
+              "properties": {
+                "current_location": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "location": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "earliest_start": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "days_per_week": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "continuous_months": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 120
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "capabilities": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "breadth_depth": {
+                    "type": "string",
+                    "enum": [
+                      "breadth",
+                      "depth",
+                      "none"
+                    ]
+                  },
+                  "level": {
+                    "type": "string",
+                    "enum": [
+                      "self_statement",
+                      "original_artifact",
+                      "third_party",
+                      "ai_summary",
+                      "inference"
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  },
+                  "evidence_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                },
+                "required": [
+                  "name",
+                  "breadth_depth",
+                  "level"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 100
+            },
+            "preferred_service_objects": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "consumer",
+                  "enterprise_user",
+                  "internal_team",
+                  "developer",
+                  "player",
+                  "merchant",
+                  "mixed"
+                ]
+              },
+              "maxItems": 7
+            },
+            "preferred_deliverables": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "product_spec",
+                  "interaction_design",
+                  "visual",
+                  "research",
+                  "code",
+                  "operations",
+                  "content",
+                  "mixed"
+                ]
+              },
+              "maxItems": 8
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "user_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "operation",
+            "confirmed",
+            "user_ref"
+          ],
+          "additionalProperties": false
+        },
         {
           "type": "object",
           "properties": {
@@ -2473,6 +4113,95 @@
                       "live",
                       "demo"
                     ]
+                  },
+                  "parent_application_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "graduation_min_year": {
+                    "type": "integer",
+                    "minimum": 1900,
+                    "maximum": 2200
+                  },
+                  "graduation_max_year": {
+                    "type": "integer",
+                    "minimum": 1900,
+                    "maximum": 2200
+                  },
+                  "required_degree": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "required_majors": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    },
+                    "maxItems": 100
+                  },
+                  "availability": {
+                    "type": "object",
+                    "properties": {
+                      "location": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "latest_start": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      },
+                      "days_per_week": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 7
+                      },
+                      "continuous_months": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 120
+                      }
+                    },
+                    "required": [],
+                    "additionalProperties": false
+                  },
+                  "qualification_conflicts": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "gate": {
+                          "type": "string",
+                          "enum": [
+                            "graduation",
+                            "degree",
+                            "major",
+                            "language",
+                            "tool",
+                            "portfolio",
+                            "availability",
+                            "city",
+                            "quota"
+                          ]
+                        },
+                        "note": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "gate",
+                        "note"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 100
                   }
                 },
                 "required": [
@@ -2551,6 +4280,123 @@
                 },
                 "complete": {
                   "type": "boolean"
+                },
+                "entries": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "source_url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 3000
+                      },
+                      "track": {
+                        "type": "string",
+                        "enum": [
+                          "campus",
+                          "internship",
+                          "experienced"
+                        ]
+                      },
+                      "campaign": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "external_ids": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "maxItems": 100000
+                      },
+                      "complete": {
+                        "type": "boolean"
+                      },
+                      "observed_at": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "total": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000
+                      }
+                    },
+                    "required": [
+                      "source_url",
+                      "external_ids",
+                      "complete",
+                      "observed_at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 100
+                },
+                "live_entries": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "source_url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 3000
+                      },
+                      "track": {
+                        "type": "string",
+                        "enum": [
+                          "campus",
+                          "internship",
+                          "experienced"
+                        ]
+                      },
+                      "campaign": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "external_ids": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "maxItems": 100000
+                      },
+                      "complete": {
+                        "type": "boolean"
+                      },
+                      "observed_at": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "total": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000
+                      }
+                    },
+                    "required": [
+                      "source_url",
+                      "external_ids",
+                      "complete",
+                      "observed_at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 100
+                },
+                "live_checked_at": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
                 }
               },
               "required": [
@@ -2568,6 +4414,13 @@
             },
             "compact": {
               "type": "boolean"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "live",
+                "demo"
+              ]
             }
           },
           "required": [
@@ -2672,6 +4525,142 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 2000
+                  },
+                  "service_object": {
+                    "type": "string",
+                    "enum": [
+                      "consumer",
+                      "enterprise_user",
+                      "internal_team",
+                      "developer",
+                      "player",
+                      "merchant",
+                      "mixed",
+                      "unclear"
+                    ]
+                  },
+                  "core_deliverable": {
+                    "type": "string",
+                    "enum": [
+                      "product_spec",
+                      "interaction_design",
+                      "visual",
+                      "research",
+                      "code",
+                      "operations",
+                      "content",
+                      "mixed"
+                    ]
+                  },
+                  "hard_gates": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "gate": {
+                          "type": "string",
+                          "enum": [
+                            "graduation",
+                            "degree",
+                            "major",
+                            "language",
+                            "tool",
+                            "portfolio",
+                            "availability",
+                            "city",
+                            "quota"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "requirement",
+                            "preferred",
+                            "structured_field"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "meets",
+                            "fails",
+                            "unknown",
+                            "conflict"
+                          ]
+                        },
+                        "note": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        },
+                        "requirement_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        }
+                      },
+                      "required": [
+                        "gate",
+                        "source",
+                        "status",
+                        "note"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 100
+                  },
+                  "tier": {
+                    "type": "string",
+                    "enum": [
+                      "priority",
+                      "conditional",
+                      "adjacent",
+                      "qualification_hold",
+                      "misjudged",
+                      "excluded"
+                    ]
+                  },
+                  "evidence_refs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "evidence_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        },
+                        "level": {
+                          "type": "string",
+                          "enum": [
+                            "self_statement",
+                            "original_artifact",
+                            "third_party",
+                            "ai_summary",
+                            "inference"
+                          ]
+                        },
+                        "note": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "evidence_id",
+                        "level"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 200
+                  },
+                  "rank": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000
+                  },
+                  "gates_complete": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -2705,8 +4694,8 @@
   },
   {
     "name": "jobos1_shortlist",
-    "title": "按指定公司充分发现，默认至少10个相关岗位；逐岗推荐度、理由、风险，不足明确说明",
-    "description": "按指定公司充分发现，默认至少10个相关岗位；逐岗推荐度、理由、风险，不足明确说明。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
+    "title": "按指定公司充分发现；按职责、证据和资格档位排序，展示理由与缺口，不凑数量",
+    "description": "按指定公司充分发现；按职责、证据和资格档位排序，展示理由与缺口，不凑数量。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。",
     "inputSchema": {
       "oneOf": [
         {

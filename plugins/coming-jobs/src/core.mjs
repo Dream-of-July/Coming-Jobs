@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 export const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-export const VERSION = '1.0.0-beta.10';
+export const VERSION = '1.0.0-beta.13';
 export const CONTRACT = 'jobos/1';
 export function buildId() {
     try {

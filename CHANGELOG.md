@@ -1,5 +1,14 @@
 # Changelog / 版本记录
 
+## 1.0.0-beta.13 — Independent fit assessment / 独立岗位评估
+
+- Added evidence-graded, duty-based assessments and shared qualification gates for daily recommendations and resumable comparisons of up to 20 companies.
+- Added anonymous platform collectors, live-list coverage deltas, seven-column reports and independent-ranking differences.
+- Fixed daily comparison rank consistency and explicit clearing of obsolete opportunity deadlines and limits.
+- Preserved recruitment-track aliases, historical report recovery and stable missing-run diagnostics from local beta.11/beta.12 updates.
+- Uses a new immutable installation directory; candidate workspaces and existing releases are preserved.
+- 中文：按职责与证据评估岗位，校验资格与剩余名额；公司比较独立续跑，升级保留资料。
+
 ## 1.0.0-beta.10 — Lightweight workers test release / 轻量分工测试版
 
 - Added host-managed Luna medium read-only tasks, bounded concurrency, review gates, per-attempt recovery and reviewed-result caching.

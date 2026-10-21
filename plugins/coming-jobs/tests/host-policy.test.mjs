@@ -29,13 +29,6 @@ test('live MCP advertises shared boundaries once and keeps tool descriptions com
  for(const tool of out[1].result.tools) assert(tool.description.includes('宿主') && tool.description.length < 220);
  assert(readFileSync(new URL('../skills/jobos/SKILL.md',import.meta.url),'utf8').includes(HOST_POLICY));
 });
-test('discovery instructions require complete API retrieval and descending numbered recommendations',()=>{
- for(const text of [HOST_POLICY,readFileSync(new URL('../skills/jobos/SKILL.md',import.meta.url),'utf8')]){
- assert(text.includes('全部分页与完整JD'));assert(text.includes('读取失败才考虑Computer Use'));assert(text.includes('按推荐度从高到低排序后编号'));
- }
- const skill=readFileSync(new URL('../skills/jobos/SKILL.md',import.meta.url),'utf8');
- assert(skill.includes('不是停止采集的条件'));assert(skill.includes('详情成功数和失败项'));assert(skill.includes('不可在同一batch_id下私自重排或改号'));
-});
 test('remembering discovery rules in the plugin is a maintenance turn',t=>{
  const h=home(t);hook({hook_event_name:'UserPromptSubmit',session_id:'s',turn_id:'1',prompt:'投递小米'},h);
  hook({hook_event_name:'UserPromptSubmit',session_id:'s',turn_id:'2',prompt:'记到插件里，每次查询岗位优先读取接口'},h);

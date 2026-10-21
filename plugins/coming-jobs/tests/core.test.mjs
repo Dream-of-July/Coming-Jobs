@@ -8,7 +8,7 @@ import { Store } from '../src/store.mjs';
 import { guidance } from '../src/flow.mjs';
 import { TOOLS } from '../src/catalog.mjs';
 import { validate, hash, now } from '../src/core.mjs';
-import { environment, seedProfile, seedJob, seedApplication, seedPlan, correctObservations, checkpointArgs } from './helpers.mjs';
+import { environment, seedProfile, seedJob, seedApplication, seedPlan, correctObservations, checkpointArgs, reviewedFitFields } from './helpers.mjs';
 test('new user receives one concrete question, not a blank nextAction', t => {
     const e = environment(t), r = e.run('context');
     assert.equal(r.coverage.percent, 0);
@@ -107,15 +107,17 @@ test('recommendation uses exact evidence and freezes stable selection numbers', 
     const evidence = e.store.all('fact').find(f => f.key === 'project.anchor').id;
     for (let i = 1; i <= 12; i++) {
         const j = seedJob(e, i);
-        e.run('jobs', { operation: 'assess', assessments: [{ job_id: j.id, job_hash: j.content_hash, eligibility: 'pass', mappings: j.requirements.map(r => ({ requirement_id: r.id, relation: 'direct', evidence_ids: [evidence], reason: '合成映射' })), advantages: ['已确认项目'], gaps: ['合成样例无真实招聘推断'], reason: '职责对应' }] });
+        e.run('jobs', { operation: 'assess', assessments: [{ job_id: j.id, job_hash: j.content_hash, ...reviewedFitFields(evidence), mappings: j.requirements.map(r => ({ requirement_id: r.id, relation: 'direct', evidence_ids: [evidence], reason: '合成映射' })), advantages: ['已确认项目'], gaps: ['合成样例无真实招聘推断'], reason: '职责对应' }] });
     }
     const b = e.run('shortlist', { operation: 'daily', mode: 'demo' });
     assert.equal(b.items.length, 10);
+    assert(b.items.every(item => item.tier === 'conditional' && item.evidence_refs[0].evidence_id === evidence));
+    assert.deepEqual(b.items.map(item => item.number), [1,2,3,4,5,6,7,8,9,10]);
     assert.deepEqual(e.run('shortlist', { operation: 'daily', mode: 'demo' }).items, b.items);
     const chosen = e.run('shortlist', { operation: 'choose', batch_id: b.id, numbers: [1, 3], confirmed: true, user_ref: '选中' });
     assert.equal(chosen.applications.length, 2);
 });
-test('unconfirmed evidence cannot inflate a match score', t => {
+test('unconfirmed evidence cannot establish a recommendation', t => {
     const e = environment(t), j = seedJob(e);
     const r = call(e.store, 'jobos1_jobs', { operation: 'assess', assessments: [{ job_id: j.id, job_hash: j.content_hash, eligibility: 'pass', mappings: j.requirements.map(r => ({ requirement_id: r.id, relation: 'direct', evidence_ids: ['invented'], reason: '假的' })), advantages: [], gaps: [], reason: 'test' }] });
     assert.equal(r.ok, false);

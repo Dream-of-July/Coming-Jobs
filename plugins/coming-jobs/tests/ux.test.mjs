@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { environment, seedApplication, seedPlan, seedProfile, checkpointArgs, correctObservations } from './helpers.mjs';
+import { environment, seedApplication, seedPlan, seedProfile, checkpointArgs, correctObservations, collectionFixture, seedCollection } from './helpers.mjs';
 import { call } from '../src/service.mjs';
 import { now, hash, Fault } from '../src/core.mjs';
 import { facts } from '../src/profile.mjs';
@@ -83,7 +83,7 @@ test('legacy plan remains compatible but cannot claim complete inventory or port
  const {e,s,p}=setup(t);e.run('checkpoint',checkpointArgs(s,p));const r=e.run('review',{application_id:s.app.id,portal_url:url});assert(r.ready);assert.equal(r.completeness,'legacy_inventory_unverified');assert.equal(r.portal_persistence,'not_verified');
 });
 function job(n) {return {company:'合成公司',title:n===2?'用户体验工程师':'产品经理',external_id:String(n),url:`https://jobs.example.com/roles/${n}`,jd:'职责：进行用户研究与交互原型设计，分析体验问题。\n要求：能够协作研究和验证解决方案。',track:'campus',mode:'demo',source:'official',observed_at:now()};}
-function collection() {return {company:'合成公司',track:'campus',source_url:'https://jobs.example.com/roles',observed_at:now(),total:2,external_ids:['1','2'],pages_read:1,has_more:false,complete:true};}
+function collection() {return collectionFixture({company:'合成公司',external_ids:['1','2']});}
 test('complete listing with missing full JD remains incomplete and blocks shortlist selection',t=>{
  const e=environment(t);seedProfile(e);const r=e.run('jobs',{operation:'ingest',jobs:[job(1)],coverage:'partial',collection:collection()});
  assert.equal(r.collection.state,'incomplete');assert.deepEqual(r.collection.missing_external_ids,['2']);
@@ -175,6 +175,7 @@ test('private referral preference appears in resumable context',t=>{
 test('another campaign collection cannot block the explicitly selected cohort',t=>{
  const e=environment(t);seedProfile(e);
  e.run('jobs',{operation:'ingest',jobs:[{...job(1),campaign:'old'}],coverage:'partial',collection:{...collection(),campaign:'old'}});
+ seedCollection(e,{company:'合成公司',campaign:'current',mode:'demo'});
  const b=e.run('shortlist',{operation:'daily',mode:'demo',companies:['合成公司'],campaign:'current',search_complete:true,search_note:'当前届别暂无岗位'});
- assert(!b.discovery.collection_pending);assert.equal(b.discovery.known_scope_count,0);
+ assert(!b.discovery.collection_pending);assert.equal(b.discovery.known_scope_count,0);assert.equal(b.discovery.collections.length,1);assert(b.discovery.collections[0].live_verified);
 });
