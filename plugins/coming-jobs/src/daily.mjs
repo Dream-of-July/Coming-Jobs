@@ -13,9 +13,18 @@ const fresh = (time, days = 1) => !!time && Date.parse(time) <= Date.now() + 300
 const config = s => {const c=s.get('settings','daily',false);return c?{...c,company_limit:Math.min(5,c.company_limit??5)}:null;};
 const runKey = (s, c, mode) => hash([s.workspace, localDate(c.timezone), c.timezone, c.config_version, mode]);
 const sourceKey = (companyId, scope, mode) => hash([companyId, scopeKey(scope), mode]);
+const TRACK_ALIASES = Object.freeze({
+    campus: new Set(['campus', '校招', '校园招聘', '秋招', '应届', '应届生']),
+    internship: new Set(['internship', '实习', '暑期实习', '日常实习']),
+    experienced: new Set(['experienced', '社招', '社会招聘', '正式社招'])
+});
+function matchesTrack(value, track) {
+    const aliases = TRACK_ALIASES[track] ?? new Set([track]);
+    return (Array.isArray(value) ? value : [value]).some(item => aliases.has(String(item).normalize('NFKC').trim().toLowerCase()));
+}
 const eligibleScopes = (store, company, mode) => {
     const tracks = facts(store, 'matching').find(f => f.key === 'intent.tracks')?.value;
-    return company.scopes.filter(s => (!tracks || JSON.stringify(tracks).includes(s.track)) && !['exhausted','closed'].includes(opportunity(store, company, s, mode).state));
+    return company.scopes.filter(s => (!tracks || matchesTrack(tracks, s.track)) && !['exhausted','closed'].includes(opportunity(store, company, s, mode).state));
 };
 function sourceState(store, company, scope, mode) { return store.get('daily_source', sourceKey(company.id, scope, mode), false); }
 function scopedJobs(store, company, scope, mode) {
@@ -30,7 +39,7 @@ function validAssessment(store, job) {
 function scopeReady(store, run, company, scope) {
     const source = sourceState(store, company, scope, run.mode);
     const { collection, jobs } = scopedJobs(store, company, scope, run.mode);
-    return source?.state === 'verified' && currentDay(source.checked_date, run.timezone) &&
+    return source?.state === 'verified' && source.checked_date === run.date &&
         collectionStatus(store, collection).complete && collectionStatus(store, collection).live_verified && jobs.every(j => j.source === 'official' && validAssessment(store, j));
 }
 function candidates(store, run) {
@@ -190,12 +199,15 @@ function reconcileTodos(store, mode) {
     }
 }
 function report(store, runId) {
-    const run = store.get('daily_run', runId), c = config(store);
-    assert(c && run.config_version === c.config_version && currentDay(run.date, run.timezone), 'daily_run_expired', '请先开始今天的任务。');
+    const run = store.get('daily_run', runId, false), c = config(store);
+    assert(run, 'daily_run_not_found', '这次每日运行不存在，请先开始今天的任务。');
+    assert(c && run.config_version === c.config_version, 'daily_config_changed', '每日设置已变更或暂停，请读取当天进度后重新开始。');
+    const historical = !currentDay(run.date, run.timezone);
     reconcileTodos(store, run.mode);
     const result = buildReport(store, run);
     // Persist this ranking before acquiring any previous recommendation payload.
-    const ranked = result.cards.flatMap(card => card.items.map((item,i) => ({...item,company_id:card.company_id,company:card.company,rank:i+1,category:'recommendations'})));
+    const ranked = result.cards.flatMap(card => card.items.map(item => ({...item,company_id:card.company_id,company:card.company,category:'recommendations'})))
+        .map((item,i) => ({...item,rank:i+1}));
     const independentHash=hash([profileDigest(store),ranked]);
     const independentId=hash([run.id,independentHash]);
     const independent = store.get('daily_independent',independentId,false)??store.put('daily_independent',independentId, {run_id:run.id,sealed_at:now(),profile_hash:profileDigest(store),items:ranked,snapshot_hash:independentHash});
@@ -226,7 +238,7 @@ function report(store, runId) {
         items: items.map(({ verified_at, opportunity: o, ...rest }) => ({ ...rest, opportunity: { state: o.state, remaining: o.remaining } })) }));
     const digest = hash([semantic, result.pending.map(p => [p.company_id, p.reason]), result.tasks.filter(t => t.state === 'blocked').map(t => [t.kind, t.company_id, t.reason])]);
     const previous = store.get('settings', `daily_notice_${run.mode}`, false);
-    const notify = previous?.digest !== digest && (result.cards.length > 0 || result.pending.length > 0 || result.tasks.some(t => t.state === 'blocked'));
+    const notify = !historical && previous?.digest !== digest && (result.cards.length > 0 || result.pending.length > 0 || result.tasks.some(t => t.state === 'blocked'));
     const snapshot = store.put('daily_report', hash([run.id, digest]), { ...result, independent_snapshot_id:independent.id, independent_snapshot_hash:independent.snapshot_hash, diff, markdown:renderComparisonReport(prose), run_id: run.id, date: run.date, timezone: run.timezone, digest, created_at: now(),
         status: result.cards.length >= c.target_companies ? 'ready' : result.cards.length ? 'partial' : 'blocked',
         shortage: Math.max(0, c.target_companies - result.cards.length), budget: budget(store, run) });
@@ -234,8 +246,9 @@ function report(store, runId) {
     for (const card of result.cards) store.put('daily_todo', hash([card.company_id, run.mode]), { company_id: card.company_id, mode: run.mode, state: 'pending', report_id: snapshot.id });
     store.put('daily_run', run.id, { ...run, state: snapshot.status, report_id: snapshot.id, finished_at: now() });
     const binding = store.get('settings', 'daily_scheduler', false);
-    if (binding && run.mode === 'live') store.put('settings', binding.id, { ...binding, last_run: { id: run.id, state: snapshot.status, at: now() } });
-    return { report: snapshot, notify, delivery: '本次通知已预留；成功展示后 acknowledge。失败或结果未知保留 reserved，不自动重发。' };
+    if (binding && run.mode === 'live' && (!historical || binding.last_run?.id === run.id))
+        store.put('settings', binding.id, { ...binding, last_run: { id: run.id, state: snapshot.status, at: now() } });
+    return { report: snapshot, notify, historical, delivery: historical ? '历史日报已保存，下一天从新任务继续；不发送重复通知。' : '本次通知已预留；成功展示后 acknowledge。失败或结果未知保留 reserved，不自动重发。' };
 }
 export function dailySummary(store) {
     const c = config(store);

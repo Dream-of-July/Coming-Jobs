@@ -39,7 +39,7 @@ Ask:
 
 > Start Coming Jobs. Read my current context and continue from the last confirmed step.
 
-The first `jobos1_context` result should identify **1.0.0-beta.10**. An already-running conversation can retain an older tool process; copying new files is not a hot reload.
+The first `jobos1_context` version/build should match the installer result and the package's `plugins/coming-jobs/release.json`. The download examples above refer to the published beta.10 package; a source install uses its own package version. An already-running conversation can retain an older tool process; copying new files is not a hot reload.
 
 ## Upgrade from JobOS
 

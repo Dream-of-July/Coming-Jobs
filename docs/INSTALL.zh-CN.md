@@ -39,7 +39,7 @@ node scripts/install.mjs
 
 > 开始 Coming Jobs。读取当前资料，从最后确认的步骤继续。
 
-首次 `jobos1_context` 应返回 **1.0.0-beta.10**。已运行的任务可能仍持有旧进程；复制新文件不等于热更新。
+首次 `jobos1_context` 的 version/build 应与安装器结果及包内 `plugins/coming-jobs/release.json` 一致。上面的下载示例指向已发布的 beta.10；从源码安装则以当前包内版本为准。已运行的任务可能仍持有旧进程；复制新文件不等于热更新。
 
 ## 从 JobOS 升级
 

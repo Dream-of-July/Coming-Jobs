@@ -32,8 +32,10 @@ Test each module through observable behavior, then the tool boundary and complet
 
 - [x] Read method and designated implementation, pull main, branch, baseline.
 - [x] Implement and integrate modules.
-- [x] Synthetic end-to-end report and all tests: 329/329; 118 added synthetic cases and one wording-only check removed.
+- [x] Synthetic end-to-end report and all tests: 339/339; 128 added synthetic cases and one wording-only check removed.
 - [x] Public-data check and independent integration review; confirmed issues fixed with regression coverage.
-- Branch/PR delivery follows verified code; use the GitHub PR state as the delivery record. Do not merge.
+- Initial branch/PR delivery left merging to the repository owner. A subsequent authorized maintenance pass checks the current PR head and all CI jobs before merging and installing.
+
+Pre-merge maintenance: corrected global daily rank comparisons and nullable opportunity-rule updates, preserved recruitment-track aliases and historical report recovery, and added ten synthetic regression cases. Package beta.13 has a distinct immutable install directory; it does not overwrite beta.10–beta.12.
 
 Validation: single-company/three-role and twenty-company/57-role tool replays completed offline; the latter resumed after five companies without budget reset. Public-data check found no patterns across 118 files. Skill frontmatter and references checked. Real portal compatibility, missing public-entry discovery, and semantic truth of external candidate materials remain host responsibilities; no live portal or real workspace was accessed.

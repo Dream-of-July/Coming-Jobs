@@ -65,7 +65,8 @@ export function call(store, name, args = {}) {
             return data;
         };
         let data = outsideTransaction ? run() : store.mutate(name, args, run);
-        if ((name === 'jobos1_daily' && args.operation === 'report' && store.get('daily_run',args.run_id).mode === 'live') || name === 'jobos1_outcome' || (name === 'jobos1_workspace' && args.operation === 'dashboard')) {
+        const reportRun = name === 'jobos1_daily' && args.operation === 'report' ? store.get('daily_run', args.run_id, false) : null;
+        if ((reportRun?.mode === 'live') || name === 'jobos1_outcome' || (name === 'jobos1_workspace' && args.operation === 'dashboard')) {
             try { data.presentation = writeProgress(store); }
             catch { data.presentation = { status:'unavailable', next:'投递记录已保存；仅重试生成进度页，不重复提交或登记。' }; }
         }

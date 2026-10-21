@@ -20,6 +20,8 @@
 
 opportunity 记录官方或用户已明确提供的批次名额，source_ref 保存公开规则 URL 或实际用户陈述引用；不能因“求职就一次机会”推断所有公司都只能投一次。应用历史批次未知时，用官方记录或用户已确认信息 link_application，不改写 submitted_material/job_snapshot。名额耗尽只跳过本批次发现，仍跟进全部申请；被拒或撤回不自动返还名额。
 
+更新规则时，省略 limit/deadline 保留旧值；显式传 null 清除旧值。limit=null 表示名额未知，仍需核实，不等于无限名额。规则移除截止日后用 deadline=null；exhausted 是独立的核验结论，需要新证据明确解除时另传 exhausted=false。较旧观察不能覆盖或清除较新规则。
+
 ## 每日执行
 
 1. 先 followup(queue,background=true) 独立只读检查全部已提交/用户确认申请。notification、capability、outcome 也传 background=true。缺连接器/登录只标缺口，不阻塞后面的公开岗位推荐。
@@ -34,6 +36,8 @@ opportunity 记录官方或用户已明确提供的批次名额，source_ref 保
 ## 展示、续跑和控制
 
 使用 report 的稳定 A–E 编号、report_id、官方链接、个人匹配理由/缺口和截止。主次岗位顺序不可自己重排。重复触发从 next 同一任务恢复，不能重置当天预算。report.notify=false 且跟进也没有新进展/可行动事项时静默。report 已原子预留本次通知，重复运行不会再次通知；成功展示后 acknowledge(result_ref=真实展示结果引用)；失败或结果未知不能自动重发。生成 HTML 不等于用户已看到，后台只生成，用户查看任务时再用 open_in_codex 打开。
+
+跨日补存 report 仍归属原 run.date，仅作历史恢复，不预留新通知或回退较新的调度游标；后续投递必须取得当天核验结果。不存在的 run_id 返回 daily_run_not_found。
 
 报告包含 presentation 时是私有本地 HTML，不公开托管。日报是有日期的核验快照。用户明确选择后 daily(choose) 复核当前 JD、评估和名额，再复用/创建 preparing 申请；“暂缓 A”用 feedback(defer)，无日期表示持续暂缓，用户恢复用 save；reject 表示不再推荐该公司，可用 save 恢复。
 

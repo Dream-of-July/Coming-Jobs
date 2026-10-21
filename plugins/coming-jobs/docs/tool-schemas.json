@@ -1357,9 +1357,16 @@
               "maxLength": 300
             },
             "limit": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 100
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "exhausted": {
               "type": "boolean"
@@ -1376,9 +1383,16 @@
               ]
             },
             "deadline": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 80
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "source": {
               "type": "string",

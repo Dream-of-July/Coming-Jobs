@@ -29,9 +29,9 @@ export function setOpportunity(store, a) {
     const old = store.get('opportunity', key, false);
     assert(!old || Date.parse(old.observed_at) <= Date.parse(observed), 'stale_observation', '较旧规则不能覆盖较新核验。');
     return store.put('opportunity', key, { company_id: company.id, track: a.track, campaign: a.campaign,
-        limit: a.limit ?? old?.limit ?? null, exhausted: a.exhausted ?? old?.exhausted ?? false,
+        limit: Object.hasOwn(a, 'limit') ? a.limit : old?.limit ?? null, exhausted: a.exhausted ?? old?.exhausted ?? false,
         can_change: a.can_change ?? old?.can_change ?? null, volunteer_order: a.volunteer_order ?? old?.volunteer_order ?? 'unknown',
-        deadline: a.deadline ? iso(a.deadline) : old?.deadline ?? null,
+        deadline: Object.hasOwn(a, 'deadline') ? a.deadline === null ? null : iso(a.deadline) : old?.deadline ?? null,
         source: a.source, source_ref: a.source_ref, observed_at: observed });
 }
 export function opportunity(store, company, scope, mode = 'live') {
