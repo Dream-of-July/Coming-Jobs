@@ -21,5 +21,5 @@ export function writeProgress(store) {
  writeFileSync(file+'.tmp',renderProgress(store.all('application').filter(a=>a.mode!=='demo'),store.get('settings','schedule',false),new Date().toISOString(),queue(store),store.all('notification').filter(n=>store.get('application',n.application_id,false)?.mode!=='demo'),dailySummary(store),store.all('daily_report').filter(r=>store.get('daily_run',r.run_id,false)?.mode==='live').at(-1)),{mode:0o600});renameSync(file+'.tmp',file);
  const view_hash = hash([store.all('application').map(a=>[a.id,a.revision]), store.get('settings','schedule',false), store.all('notification'),store.all('capability'),dailySummary(store),store.all('daily_report').map(r=>r.digest)]);
  store.put('settings','presentation',{status:'generated',view_hash,generated_at:new Date().toISOString()});
- return {status:'ready',view_hash,file,format:'html',contains_private_data:true,host_action:'open_in_codex',target:{type:'file',path:file},instruction:'现在使用Codex宿主open_in_codex打开此HTML综合进度页；打开成功后再交接，不声称文件生成等于页面已打开。不要公开托管。'};
+ return {status:'ready',view_hash,file,format:'html',contains_private_data:true,host_action:'open_local_view',target:{type:'file',path:file},instruction:'现在使用当前宿主的本地视图能力打开此HTML综合进度页；打开成功后再交接，不声称文件生成等于页面已打开。不要公开托管。'};
 }

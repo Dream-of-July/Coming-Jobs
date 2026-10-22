@@ -25,6 +25,7 @@ test('Coming Jobs hook injects concrete lifecycle instructions only into relevan
 test('bare completed response triggers exactly one end-of-turn repair', t => {
     const e = environment(t);
     hook(event('UserPromptSubmit', { prompt: '使用Coming Jobs' }), e.dir);
+    e.store.put('apply_batch','synthetic',{state:'active'});
     const stop = event('Stop', { last_assistant_message: '已完成。' });
     assert.equal(hook(stop, e.dir).decision, 'block');
     assert.deepEqual(hook(stop, e.dir), {});

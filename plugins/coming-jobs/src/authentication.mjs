@@ -1,7 +1,9 @@
+import { currentHost } from './host.mjs';
 import { facts } from './profile.mjs';
 
 /** Consent metadata only. Mailboxes, Messages and transient codes stay with the host. */
 export function authenticationContext(store) {
+    if (currentHost().id === 'claude') return {email_read:'user_only',sms_read:'user_only',preferred_channels:[],request_channels:[],scope:'user_entered_login_codes',host_access:store.get('settings','host_access',false)?.state ?? 'not_verified',permission_prompt:null};
     const permittedFacts = facts(store, 'form');
     const channels = ['email', 'sms'];
     const permissions = Object.fromEntries(channels.map(channel => {

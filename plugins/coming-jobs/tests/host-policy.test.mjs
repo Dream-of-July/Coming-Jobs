@@ -5,7 +5,7 @@ import {spawnSync} from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import {hook} from '../hooks/lifecycle.mjs';
-import {HOST_POLICY} from '../src/policy.mjs';
+import {HOST_POLICY,HOST_ADDENDA} from '../src/policy.mjs';
 import {TOOLS} from '../src/catalog.mjs';
 function home(t){const p=mkdtempSync(path.join(os.tmpdir(),'jobos-policy-'));t.after(()=>rmSync(p,{recursive:true,force:true}));return p;}
 test('recruiting hook permits host browser while preserving human-only actions',t=>{
@@ -41,3 +41,5 @@ test('application workflow reuses confirmed answers and reviews tailoring before
  for(const clause of ['AX未显示值不等于字段为空','每次投递重新读取','不凭历史缓存复用内推码','不得先上传未审核稿','用户已在本轮确认无修改时直接交接','私密候选资料不写插件源码']) assert(s.includes(clause),clause);
  assert(s.includes('preferences.referral_source'));assert(!s.includes('docs.qq.com/smartsheet/'));
 });
+
+test('each host supplement is mirrored verbatim in its reference',()=>{for(const host of ['codex','claude']) assert(readFileSync(new URL('../skills/jobos/references/hosts/'+host+'.md',import.meta.url),'utf8').includes(HOST_ADDENDA[host]));});

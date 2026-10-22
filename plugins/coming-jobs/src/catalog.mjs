@@ -5,7 +5,7 @@ import { comparisonSchema } from './comparison-schema.mjs';
 import { fitAssessmentFields, structuredJobFields } from './fit-assessment.mjs';
 import { EVIDENCE_LEVEL, fitProfileFields } from './fit-profile.mjs';
 import { HOST_POLICY } from './policy.mjs';
-import { S, B, I, E, A, O, V, OP } from './core.mjs';
+import { S, B, I, E, A, O, V, OP, publicSchema } from './core.mjs';
 const APPROVAL = { confirmed: B, user_ref: S(1000) };
 const PURPOSE = A(E('matching', 'resume', 'form', 'interview', 'tracking'), 5);
 const FACT = O({ key: S(150), value: V, purposes: PURPOSE, scope: S(200), expires_at: S(80), sensitive_opt_in: B, evidence_level: EVIDENCE_LEVEL }, ['key', 'value']);
@@ -30,9 +30,11 @@ const CONTENT = O({ name: S(150), headline: S(300), contact: S(1000), links: A(O
     sections: A(O({ title: S(150), items: A(O({ text: S(10000), evidence_ids: A(S(100), 50) }), 30) }), 12) }, ['name', 'headline', 'sections']);
 const PREF = O({ template: E('classic', 'projects', 'clean'), figma: S(3000), figma_node: S(100), timezone: S(100), company_order: A(S(100), 50), referral_source: S(3000) }, []);
 const definitions = [];
+export const INTERNAL_SCHEMAS = new Map();
 function tool(name, title, schema, read = false) {
     // One registry is used for MCP discovery, validation, CLI, dashboard and docs.
-    definitions.push({ name: 'jobos1_' + name, title, description: title + '。使用当前宿主能力执行已授权外部操作；最终提交由用户完成。', inputSchema: schema,
+    INTERNAL_SCHEMAS.set('jobos1_' + name, schema);
+    definitions.push({ name: 'jobos1_' + name, title, description: title + '。使用当前宿主能力执行已授权外部操作；最终提交需用户逐批明确批准。', inputSchema: publicSchema(schema),
         annotations: { readOnlyHint: read, destructiveHint: false, openWorldHint: false, idempotentHint: read } });
 }
 const EXPERIENCE_SCOPE = O({ company: S(150), origin: S(500), stage: E('identity', 'education', 'experience', 'attachment', 'review'), structure: S(64), host_version: S(100) });

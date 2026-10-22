@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { currentHost } from './host.mjs';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';

@@ -33,7 +33,7 @@ function stat(label, value, note) { return `<div class="stat"><span>${esc(label)
 function render() {
     $('#title').textContent = titles[tab];
     $('#stage').textContent = data.flow.stage;
-    $('#next-title').textContent = data.flow.next.owner === 'agent' ? '已准备好继续，由 Codex 完成下一步' : data.flow.options?.length ? '选择你想推进的方向' : '等待你的操作';
+    $('#next-title').textContent = data.flow.next.owner === 'agent' ? `已准备好继续，由 ${data.host?.name ?? 'Codex'} 完成下一步` : data.flow.options?.length ? '选择你想推进的方向' : '等待你的操作';
     $('#next-detail').textContent = data.flow.next.prompt;
     const panel = $('#panel');
     if (tab === 'overview') {

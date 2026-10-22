@@ -30,7 +30,7 @@ Failed probe attempts: sandbox git fetch DNS failure (succeeded after network pe
 ## Execution ledger
 
 - Phase 0: probe conclusions recorded; baseline/integration validation passed: 351/351; public check 0 findings.
-- Phase 1: pending — public schemas, host policy, hooks, workers, scheduling, response budget.
+- Phase 1: implemented — public schemas, host policy, hooks, workers, scheduling, response budget.
 - Phase 2: pending — manifests/version, dual installer, CLI registration and smoke checks.
 - Phase 3: pending — dependency-based validity, structured fit questions and target approval.
 - Phase 4: pending — hash approvals, claims/composition, offline Chrome renderer/receipts/cache.
@@ -50,3 +50,5 @@ Failed probe attempts: sandbox git fetch DNS failure (succeeded after network pe
 ## Validation record
 
 Every phase commit: `node scripts/build-release.mjs && (cd plugins/coming-jobs && npm test) && node scripts/check-public.mjs`. Logs in temporary scratch space; counts, failures, fixes and commit evidence added below as work proceeds.
+
+Phase 1 validation: new tests first failed on non-object schemas, missing host context, Claude credential policy and native turn assumptions. Narrow tests now pass. Full run initially 356/357: one legacy human_only assertion, updated to the specified batch_grant_only contract. Stop behavior test now seeds real pending work; no pending work causes no stop repair.

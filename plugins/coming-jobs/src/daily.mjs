@@ -1,3 +1,4 @@
+import { currentHost } from './host.mjs';
 import { assert, consent, hash, now, iso, noSecrets, publicUrl } from './core.mjs';
 import { facts, coverage, profileDigest } from './profile.mjs';
 import { collectionStatus, saveJobs, assessJobs, createApplication, readAssessment } from './jobs.mjs';
@@ -282,9 +283,12 @@ export function daily(store, a) {
     if (a.operation === 'opportunity') return setOpportunity(store, a);
     if (a.operation === 'status') return { ...dailySummary(store), companies: store.all('company').map(c => ({ ...c, opportunities: c.scopes.map(s => ({ ...s, ...opportunity(store, c, s, a.mode ?? 'live') })) })) };
     if (a.operation === 'bind') {
+        const provider = a.provider ?? currentHost().scheduler;
+        assert(provider === currentHost().scheduler, 'scheduler_host_mismatch', '调度提供方与宿主不一致。');
+        assert(provider !== 'codex_heartbeat' || !!a.target_thread_id, 'target_thread_required', 'Codex 心跳需要绑定目标聊天。');
         assert(a.host_success && a.result_ref, 'scheduler_unverified', '需要宿主实际绑定成功的结果。');
         noSecrets(a.result_ref);
-        return store.put('settings', 'daily_scheduler', { state: 'host_reported_active', provider_task_id: a.provider_task_id,
+        return store.put('settings', 'daily_scheduler', { state: 'host_reported_active', provider, provider_task_id: a.provider_task_id,
             target_thread_id: a.target_thread_id, result_ref: a.result_ref, bound_at: now(), last_run: null });
     }
     if (a.operation === 'health') {
