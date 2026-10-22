@@ -210,11 +210,11 @@ export function review(store, a) {
         inventory.push({ key: 'portfolio', label: '作品附件或仅链接入口核验', required: true, passed: false });
     const batches = store.all('execution_batch').filter(b => b.application_id === app.id && b.plan_id === plan.id);
     if (batches.length) for (const spec of itinerary(plan)) if (!batches.some(b => b.number === spec.number && b.state === 'complete')) inventory.push({key: `batch:${spec.number}`, label: '批次回读或附件阶段未完成', required: true, passed: false});
-    const controls=a.controls??app.portal_inventory??null;
+    const controls=(a.controls??app.portal_inventory??null)?.map(c=>c.type==='agreement'||c.type==='checkbox'&&plan.groups.some(g=>g.fields.some(f=>f.key===c.key&&f.type==='agreement'))?{...c,type:'agreement',text_hash:typeof c.text==='string'?hash(c.text):c.text_hash}:c)??null;
     if(controls){
         noSecrets(controls);const planned=new Set(plan.groups.flatMap(g=>g.fields).map(f=>f.key));
         for(const c of controls)if(c.required&&!planned.has(c.key))inventory.push({key:c.key,label:c.label??c.key,required:true,passed:false,reason:'unplanned_required_control'});
-        for(const c of controls.filter(c=>c.type==='agreement')){const field=plan.groups.flatMap(g=>g.fields).find(f=>f.key===c.key&&f.type==='agreement');if(!field||field.text_hash!==c.text_hash)inventory.push({key:c.key,label:c.label??c.key,required:true,passed:false,reason:'agreement_changed'});}
+        for(const c of controls.filter(c=>c.type==='agreement')){if(typeof c.text!=='string')inventory.push({key:c.key,required:true,passed:false,reason:'agreement_readback_required'});const field=plan.groups.flatMap(g=>g.fields).find(f=>f.key===c.key&&f.type==='agreement');if(!field||field.text_hash!==c.text_hash)inventory.push({key:c.key,label:c.label??c.key,required:true,passed:false,reason:'agreement_changed'});}
     } else if(app.apply_batch_id)inventory.push({key:'controls',required:true,passed:false,reason:'inventory_required'});
     const blockers = [...checks, ...inventory].filter(g => g.required && !g.passed);
     const cv = store.get('material', app.resume_id);

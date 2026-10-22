@@ -16,6 +16,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      - run: node scripts/build-release.mjs
       - run: node scripts/check-public.mjs
       - run: node scripts/install.mjs --verify-only
       - run: node --no-warnings --test plugins/coming-jobs/tests/*.test.mjs

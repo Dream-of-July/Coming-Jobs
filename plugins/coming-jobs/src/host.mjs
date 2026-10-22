@@ -12,7 +12,7 @@ export function currentHost(env = process.env) {
 export function boundedResult(result, limit = 90 * 1024) {
  if (currentHost().id !== 'claude' || Buffer.byteLength(JSON.stringify(result)) <= limit) return result;
  return { ok:result.ok,contract:result.contract,version:result.version,build:result.build,workspace_id:result.workspace_id,
-   ...(result.error ? {error:result.error} : {}),data:{compact:true,scope_required:true,available_keys:Object.keys(result.data ?? {}),
+   ...(result.error ? {error:{code:result.error.code,message:String(result.error.message??'').slice(0,2000),next:String(result.error.next??'').slice(0,1000)}} : {}),data:{compact:true,scope_required:true,available_keys:Object.keys(result.data ?? {}),
    counts:Object.fromEntries(Object.entries(result.data ?? {}).filter(([,v])=>Array.isArray(v)).map(([k,v])=>[k,v.length])),
    next:'结果超过 90 KB。使用 application_id、source_ids、material_ids 或明确的 scope 缩小范围；未截断 JSON。'},
    flow: result.flow ? {stage:result.flow.stage,can_auto_continue:result.flow.can_auto_continue,next:{owner:'agent',action:'narrow_scope',prompt:'缩小查询范围后继续。'}} : undefined };

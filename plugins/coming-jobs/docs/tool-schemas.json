@@ -451,8 +451,8 @@
   },
   {
     "name": "jobos1_tasks",
-    "title": "轻量只读子任务：规划、领取、提案、主 Agent 复核与恢复；宿主执行 Luna medium",
-    "description": "轻量只读子任务：规划、领取、提案、主 Agent 复核与恢复；宿主执行 Luna medium。使用当前宿主能力执行已授权外部操作；最终提交需用户逐批明确批准。",
+    "title": "轻量只读子任务：规划、领取、提案、主 Agent 复核与恢复；宿主执行只读 worker",
+    "description": "轻量只读子任务：规划、领取、提案、主 Agent 复核与恢复；宿主执行只读 worker。使用当前宿主能力执行已授权外部操作；最终提交需用户逐批明确批准。",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -5169,6 +5169,11 @@
           "items": {
             "type": "object",
             "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100000
+              },
               "key": {
                 "type": "string",
                 "minLength": 1,
@@ -5706,6 +5711,11 @@
           "items": {
             "type": "object",
             "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100000
+              },
               "key": {
                 "type": "string",
                 "minLength": 1,

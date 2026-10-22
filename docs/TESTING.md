@@ -1,47 +1,26 @@
-# What this beta proves
+# Validation scope
 
-[简体中文](TESTING.zh-CN.md) · [Home](../README.md)
-
-## Repeatable checks
+Run before each phase commit:
 
 ```sh
-node scripts/build-release.mjs
-node --no-warnings --test plugins/coming-jobs/tests/*.test.mjs
-node scripts/install.mjs --verify-only
-node scripts/simulate.mjs
+node scripts/build-release.mjs && (cd plugins/coming-jobs && npm test) && node scripts/check-public.mjs
 ```
 
-The beta.10 source has 212 automated regression tests. They cover confirmed-fact boundaries, application state, content consent, complete JD scope, daily budgets, material baselines, company-specific variations, partial batch recovery, upload-stage guards and private-workspace migration. These are synthetic tests, not applications sent to employers.
+The inherited merged baseline is 351 tests (339 plus the twelve email-first authentication tests). New tests cover public schema portability with strict private validation, every operation's structural arguments, host policy mirrors, hook relevance/turn IDs, worker packet compatibility, assessment dependencies, exact PDF approval, claim identity, offline rendering, field sources, parser readback, persistence, transactional approval, pause/revoke/void, one-click submission and migration.
 
-Installer tests run in temporary homes. Browser helpers use test adapters; tests are not evidence of universal recruiting-site compatibility. The built-in demo uses only synthetic candidates and example company URLs.
+`tests/batch-e2e.test.mjs` runs both profiles without a browser: reusable target lists, one grouped human checkpoint, one coded sheet approval, no repeated prompt, unchanged approved items submitted once, excluded/changed items zero times, actual resume SHA retained. Initial target/template onboarding is separate from the per-batch two-touchpoint budget. Late legal/security/content changes can require a fresh checkpoint.
 
-## Host evidence and its limit
+Chrome tests run when a supported browser exists; otherwise the test runner reports explicit skips. They render synthetic data, reject mismatched text/overflow, compress oversized icons, verify PDF size and reuse exact cached bytes. No real candidate template is loaded. Tests use local ports and Chrome processes; a restrictive shell sandbox can cause EPERM or launch timeouts and must not be mistaken for passing results.
 
-Before the Coming Jobs rebrand, beta.8 was exercised through the real Codex Desktop CUA interface on a local eight-field ordinary form. A write-ahead checkpoint, field writes/readbacks and the returned plugin receipt all completed. A locator-evaluation compatibility failure was observed and repaired by switching to a supported read-only control query.
+Optional Playwright QA uses an already installed module only:
 
-| Stable synthetic path | CUA round trips | Full-page observations | Fields matched |
-| --- | ---: | ---: | ---: |
-| Per-field write plus full-page read | 9 | 9 | 8 / 8 |
-| Bounded batch plus field readback | 3 | 2 | 8 / 8 |
+```sh
+node --no-warnings scripts/e2e-batch.mjs --host codex
+node --no-warnings scripts/e2e-batch.mjs --host claude
+```
 
-This is a narrowly scoped ordinary-field comparison. It excludes developer diagnosis, plugin calls and setup; it measures model-to-CUA round trips, not low-level browser RPCs or total tokens. The test's attachment precondition was a fixture. There is no claim of a corresponding whole-application speedup or verified attachment upload in that measurement.
+Set JOBOS_PLAYWRIGHT to the installed module path if needed. Three loopback portals exercise parser overwrite/new parsed fields, single-submit manual declaration plus optional synthetic OTP, and a result page. The Claude file upload and human steps are explicitly simulated by the test harness, not proof of automatic Claude Desktop upload capability.
 
-The renamed beta.9 package is checked separately for regression, installation, source integrity and a fresh MCP process. Host evidence from beta.8 is not mislabeled as a new live beta.9 application.
+Isolated install: `node scripts/install.mjs --home "$(mktemp -d)" --host both --skip-cli`, then `node scripts/smoke-host.mjs --home <that-home>`. Both actual configs must answer initialize/tools/list/context and run their generated hooks. With Claude CLI, `claude plugin validate plugins/coming-jobs` must pass. Temporary CODEX_HOME marketplace loading checks coexisting manifests. CI is configured for Node 22/24 on macOS/Ubuntu; a local run does not claim remote CI success.
 
-## Known limitations
-
-- Current host integration is optimized only for Codex Desktop; macOS is the reference environment.
-- Dynamic school options, linked dates, parsed uploads and photos need current, site-specific observations. A filename or 98% progress is not attachment association evidence.
-- Completeness checks cover the explicitly approved inventory. They cannot invent missing experiences or independently prove a host-provided PDF text extraction.
-- Experience validation and timing metrics depend on real evidence supplied by the host. A successful submission is not a job-fit label.
-- A scheduler configuration is not an active schedule until the host binding succeeds.
-- Documentation is bilingual; some runtime UI and validation text remains Chinese.
-- Observe the next 3–5 real applications before reporting real efficiency gains.
-
-## Good test feedback
-
-Use a synthetic page and fake candidate values. Include the plugin build, Codex Desktop version, expected behavior, actual behavior and whether a user edit was preserved. Do not upload resumes, account tokens, assessment links, complete chats or screenshots containing personal information.
-
-## Lightweight worker validation
-
-[Host exercise, benchmark scope and metric limits](LIGHTWEIGHT.md). Run `node --no-warnings scripts/task-benchmark.mjs` for the synthetic dispatcher comparison.
+Real-portal acceptance remains manual: inspect migration_plan without executing it; group login actions; inspect the whole sheet; try prefill_only; compare parser results, portal persistence and full agreement text; manually handle declarations; approve and submit one genuinely desired application; verify official result and actual SHA; confirm no Stop reminder when no pending work exists.

@@ -1,22 +1,23 @@
-# Privacy & security / 隐私与安全
+# Privacy and security / 隐私与安全
 
-Coming Jobs stores candidate context locally by default. It does not include your database or materials in the source repository. The agent and authorized host tools may process the information you choose to use; **local-first is not a promise of offline execution**.
+Candidate records remain in the private local workspace. Local-first is not a promise that authorized host tools never process selected data. Tests and examples use synthetic data only.
 
-个人资料默认保存在本地，源码仓库不包含用户数据库或材料。Agent 与已授权宿主可能处理你选择使用的信息；**本地优先不等于离线运行**。
+## Submission authority
 
-## Boundaries / 操作边界
+A coded, itemized approval sheet is valid for two hours. One transaction binds the selected application IDs, recipients, fields, exact file hashes and agreements to a host/session grant lasting at most twelve hours or the earliest deadline. Tool arguments and coded replies must agree on the selected numbers. Host permission alone never grants submission authority.
 
-- Confirmed facts and their permitted purposes stay separate from permission to transmit them to a company.
-- Credentials, identity documents and private assessment links must not enter ordinary facts or operation experiences.
-- Final submission, authentication and necessary declarations remain human steps.
-- A changed user value is a conflict to preserve, not a field to overwrite on retry.
-- Operation experience is scoped to a company, portal, stage, structure and host version. It does not authorize actions or modify runtime code.
-- 事实用途与外部发送授权分开；结果未知先回读，不盲目重试。个人答案不进入通用经验，经验不会扩大权限。
+clear_submit checks the current job/plan/material/evidence/field/agreement snapshots, remaining quota, real controls, verified declarations, all execution batches and a review younger than five minutes. It rejects background or scheduled calls. It atomically records an unknown application outcome and submit attempt before releasing one click. Unknown results are read back, never retried. Returning to preparing requires explicit fresh official evidence that the same application remains an unsubmitted draft.
 
-## Reporting / 报告问题
+Changed approved items persist as paused; unaffected approved items continue. Observations are host evidence, not cryptographic proof of remote server state. The host must actually read the current page and honestly classify foreground/background calls. Actual submitted resume SHA is copied from the immutable attempt unless explicit actual-file evidence is supplied.
 
-Use GitHub's **Report a vulnerability** private channel when available. Do not post credentials, resumes, real application data or exploit details involving personal information in public issues. If private reporting is unavailable, open an issue requesting a private contact channel without sensitive details.
+`batch_submit` defaults to on; prefill_only fills without final submission and off restores manual submission. First use on real portals should be prefill_only. Passwords, registration, QR/CAPTCHA/slider challenges, legal declarations and assessments stay user-owned. Claude never reads mailbox/SMS login codes and uses JavaScript only for readback.
 
-优先使用 GitHub 私密漏洞报告。若入口不可用，只提交请求私密联系渠道的简短 Issue，不附敏感数据。普通可复现问题请用合成例子。
+## Materials and private data
 
-Supported for this test cycle: `1.0.0-beta.9`. There is no guaranteed response-time or support SLA.
+Content approval is keyed by PDF SHA and evidence. Identity fields are fixed; only approved claims can be composed. Template script/function/image hashes are pinned. Node treats template code as text and executes none of it. A fresh default-sandbox Chrome process renders offline with blocked protocols, a deny proxy, disabled networking and no markup scripts. An implementation hash participates in render caching. Text order, overflow, image readiness and PDF size are checked; this does not replace human content/design judgment.
+
+Secrets, private assessment links and identity-document values do not enter ordinary records. The Claude script skips hidden inputs and password/OTP values. Private views and migration backups must never be published. The installer leaves user settings untouched. Imported grants are voided; imported human steps close; writer authorizations are cleared. Migration requires a coded plan, private backup and transaction; revert rejects later conflicting edits.
+
+## Reporting
+
+Use GitHub's private vulnerability report when available. Otherwise request a private contact channel without posting secrets, resumes, real applications or exploit details involving personal data. Supported test cycle: 1.0.0-beta.16; no response-time SLA.

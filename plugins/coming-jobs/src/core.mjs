@@ -86,7 +86,7 @@ export function validate(schema, value, at = '参数') {
     if (schema.oneOf) {
         if (value && typeof value.operation === 'string') {
             const branch = schema.oneOf.find(s => s.properties?.operation?.const === value.operation);
-            assert(branch, 'invalid_arguments', `${at}.operation 不支持 ${value.operation}。`);
+            assert(branch, 'invalid_arguments', `${at}.operation 不支持 ${String(value.operation).slice(0,80)}。`);
             return validate(branch, value, `${at}.${value.operation}`);
         }
         const valid = schema.oneOf.filter(s => { try {

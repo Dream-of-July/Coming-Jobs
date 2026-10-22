@@ -1,3 +1,15 @@
+# Changelog
+
+## 1.0.0-beta.16 — Hands-off batches and dual hosts
+
+- Codex-default and Claude profiles, portable public object schemas with strict operation validation, relevant-only hooks, generic read-only workers and host-aware scheduling/output budgets.
+- Separate Claude manifests/configuration/install paths. User settings stay untouched; isolated CLI registry registration is distinct from active host enablement.
+- Matching invalidation now follows cited evidence, intent and JD. Bookkeeping no longer invalidates assessments; unrelated new evidence is soft stale. Structured answers reproject gates and deduplicate fit questions.
+- Reusable target approvals and PDF SHA approvals, locked identity/approved claim composition, pinned offline Chrome rendering with DOM/PDF/screenshot receipts and stable input caching.
+- Fact-derived field checks, full observed agreement text hashing, parser-overwrite comparison and explicit portal-save evidence.
+- Coded batch sheets, atomic session-bound grants, grouped human checks, guarded one-click foreground submission, actual resume SHA tracking and voided exclusions. prefill_only and off remain available.
+- Read-only migration plans, backup/transaction/revert and import authority reset; two-host synthetic end-to-end and real-browser fixtures.
+
 # Changelog / 版本记录
 
 ## 1.0.0-beta.14 — Email-first recruitment login / 邮箱优先登录

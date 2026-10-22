@@ -111,7 +111,7 @@ function installCodex({ home = os.homedir(), skipCli = false } = {}) {
         state = registration.state;
         if (registration.ok) {
             const r = spawnSync(cli, ['plugin','add','coming-jobs@coming-jobs','--json'], {encoding:'utf8',timeout:30000,env:{...process.env,CODEX_HOME:path.join(dest,'.host-registry/codex')}});
-            if (r.status === 0) state = 'cli_install_completed';
+            if (r.status === 0) state = 'cli_registry_ready';
         }
     }
     if (state === 'files_deployed') {
@@ -131,7 +131,7 @@ function installCodex({ home = os.homedir(), skipCli = false } = {}) {
     }
     const result = { version: manifest.version, build: release.build, state, disabled_legacy_sections: disabled, installed_path: installedPlugin,
         hook_trust:hookTrust, registration_scope:'isolated_registry', data_home: dataHome, old_data_deleted: false, backup_directory: backups,
-        next: '完全退出并重开 Codex，使新工具版本生效；首次使用按宿主提示启用插件并审核 hooks。已绑定每日任务会按计划续跑；日常可直接说“今日推荐”或“继续上次投递”，无需激活口令。' };
+        next: `文件已就绪；用户 config.toml 未修改。按宿主插件管理器添加来源 ${dest} 并启用 Coming Jobs、审核 hooks 后重启；隔离 CLI 登记不等于当前宿主已启用。以新会话 context 的版本与 build 为准。` };
     atomic(path.join(dest, 'install-result.json'), JSON.stringify(result, null, 2));
     return result;
 }
@@ -167,7 +167,7 @@ export function installClaude({home=os.homedir(),skipCli=false}={}) {
  atomic(path.join(dest,'.claude-plugin/marketplace.json'),JSON.stringify({name:'coming-jobs',owner:{name:'Dream-of-July'},plugins:[{name:'coming-jobs',source:'./plugins/coming-jobs'}]},null,2));
  let state='files_deployed';
  const cli=skipCli?null:[process.env.JOBOS_CLAUDE_BIN,'claude',path.join(home,'.local/bin/claude')].filter(Boolean).find(cmd=>spawnSync(cmd,['plugin','--help'],{encoding:'utf8',timeout:10000}).status===0);
- if(cli){const result=registerClaudeMarketplace(cli,dest,home,backups);state=result.state;if(result.ok){const out=spawnSync(cli,['plugin','install','coming-jobs@coming-jobs','--scope','local'],{cwd:dest,encoding:'utf8',timeout:30000,env:{...process.env,CLAUDE_CONFIG_DIR:path.join(home,'.local/share/coming-jobs/claude-host-registry')}});if(out.status===0)state='cli_install_completed';}}
+ if(cli){const result=registerClaudeMarketplace(cli,dest,home,backups);state=result.state;if(result.ok){const out=spawnSync(cli,['plugin','install','coming-jobs@coming-jobs','--scope','local'],{cwd:dest,encoding:'utf8',timeout:30000,env:{...process.env,CLAUDE_CONFIG_DIR:path.join(home,'.local/share/coming-jobs/claude-host-registry')}});if(out.status===0)state='cli_registry_ready';}}
  return {version:manifest.version,build:release.build,state,installed_path:installedPlugin,data_home:dataHome,backup_directory:backups,registration_scope:'isolated_registry',old_data_deleted:false,
  next:`Claude 文件已就绪。未改用户 settings.json。可先用 claude --plugin-dir "${installedPlugin}" 启动；或在 /plugin 中手动添加本地 marketplace "${dest}" 并启用 coming-jobs。登录、验证码和文件拖入按集中检查点处理。`};
 }

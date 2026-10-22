@@ -27,7 +27,7 @@ const FIELD = O({ key: S(150), label: S(200), type: E('free_text', 'portal_selec
     required: B, attachment_mode: E('parse', 'attachment_only'), restore_keys: A(S(150),1000), restore_confirmed: B, restore_ref: S(1000), content_key: S(100), variation_id: S(100), max_bytes: I(1, 100000000), allowed_mime_types: A(E('application/pdf', 'image/png', 'image/jpeg'), 3), attachment_protocol: E('complete'), max_length: I(1, 40000), value: V, evidence_ids: A(S(100), 30), material_id: S(100), option_id: S(200), locator: LOCATOR, selected_locator: LOCATOR }, ['key', 'label', 'type', 'required']);
 const OBSERVED_VALUE = { oneOf: [{ type: 'string', maxLength: 40000 }, B, { type: 'number' }, A({ type: 'string', maxLength: 4000 }, 100)] };
 const OBSERVED = O({ key: S(150), value: OBSERVED_VALUE, selected: B, option_id: {type:'string', maxLength:200}, upload_complete: B, local_sha256: S(64), file_name: {type:'string', maxLength:300}, file_bytes: I(0, 100000000), file_count: I(0, 100), read_state: E('known', 'unreadable'), portal_saved: B, file_selected: B, parse_complete: B, attachment_associated: B }, ['key']);
-const CONTROL=O({key:S(150),label:S(300),type:S(100),required:B,text_hash:S(64),title:S(300),excerpt:S(2000)},['key','type','required']);
+const CONTROL=O({text:S(100000),key:S(150),label:S(300),type:S(100),required:B,text_hash:S(64),title:S(300),excerpt:S(2000)},['key','type','required']);
 const GROUP = O({ key: S(100), label: S(200), required: B, fields: A(FIELD, 100) });
 const CONTENT = O({ name: S(150), headline: S(300), contact: S(1000), links: A(O({ label: S(100), url: S(3000) }), 10),
     sections: A(O({ title: S(150), items: A(O({ text: S(10000), evidence_ids: A(S(100), 50) }), 30) }), 12) }, ['name', 'headline', 'sections']);
@@ -49,7 +49,7 @@ tool('experience', '限定页面范围的操作经验；候选经合成验证和
     OP('disable', { experience_id: S(100) }), OP('metrics')
 ] });
 tool('material_index', '已授权材料索引与精确哈希文本缓存；先复用确认基线，不按日期猜版本', MATERIAL_INDEX_SCHEMA);
-tool('tasks', '轻量只读子任务：规划、领取、提案、主 Agent 复核与恢复；宿主执行 Luna medium', tasksSchema(ASSESSMENT));
+tool('tasks', '轻量只读子任务：规划、领取、提案、主 Agent 复核与恢复；宿主执行只读 worker', tasksSchema(ASSESSMENT));
 tool('context', '一次读取本次任务的画像、完整申请上下文和可选下一步；不得逐字段分页', O({ scope: E('current', 'profile', 'applications', 'application', 'metrics', 'daily'), application_id: S(100), session_id: S(100), turn_id: S(100), since: S(64) }, []), true);
 tool('daily', '公司机会账本与每日五家待办；按预算增量采集、评估、跨日恢复，选定后准备材料', dailySchema(JOB, COLLECTION, ASSESSMENT));
 tool('comparison', '独立公司比较：最多20家公司、累计预算与游标；先封存排序再比较历史，不创建申请', comparisonSchema(JOB, COLLECTION, ASSESSMENT));

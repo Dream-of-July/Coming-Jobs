@@ -4,7 +4,7 @@ import {environment,seedProfile,seedJob,simplePDF,reviewedFitFields} from './hel
 import {createApplication} from '../src/jobs.mjs';
 import {itinerary} from '../src/execution.mjs';
 import {now} from '../src/core.mjs';
-export function batchFixture(t,count=3){
+export function batchFixture(t,count=3,options={}){
  const e=environment(t);seedProfile(e);const file=path.join(e.dir,'resume.pdf');writeFileSync(file,simplePDF());
  const first=e.run('material',{operation:'register',file,kind:'resume',authorized:true,user_ref:'Synthetic baseline onboarding'});e.run('material',{operation:'approve',material_id:first.id,sha256:first.asset.sha256,visual_ok:true,content_ok:true,text_quality:'pass',confirmed:true,user_ref:'Synthetic baseline onboarding approval'});
  const evidence=e.store.all('fact').find(f=>f.key==='project.anchor'),name=e.store.all('fact').find(f=>f.key==='name');
@@ -12,7 +12,7 @@ export function batchFixture(t,count=3){
  for(let n=1;n<=count;n++){
  const job=seedJob(e,n);e.run('jobs',{operation:'assess',assessments:[{job_id:job.id,job_hash:job.content_hash,mappings:job.requirements.map(r=>({requirement_id:r.id,relation:'direct',evidence_ids:[evidence.id],reason:'Synthetic evidence'})),advantages:[],gaps:[],reason:'Synthetic eligible',...reviewedFitFields(evidence.id)}]});
  const app=createApplication(e.store,job.id,'Synthetic target selection'),m=e.run('material',{operation:'register',file,kind:'resume',job_id:job.id,authorized:true,user_ref:'Synthetic baseline reuse'});e.run('material',{operation:'bind',application_id:app.id,material_id:m.id});
- const plan=e.run('plan',{application_id:app.id,portal_url:'https://jobs.example.com/application',page_fingerprint:'synthetic-v1',groups:[{key:'identity',label:'Identity',required:true,fields:[{key:'name',label:'姓名',type:'free_text',required:true,value:'陈同学',source:{fact_id:name.id,transform:'identity'}}]},{key:'resume',label:'Resume',required:true,fields:[{key:'cv',label:'Resume',type:'file_upload',required:true,value:m.id}]}]}).plan;
+ const plan=e.run('plan',{application_id:app.id,portal_url:'https://jobs.example.com/application',page_fingerprint:'synthetic-v1',groups:[{key:'identity',label:'Identity',required:true,fields:[{key:'name',label:'姓名',type:'free_text',required:true,value:'陈同学',source:{fact_id:name.id,transform:'identity'}},...(options.manual?[{key:'declaration',label:'Synthetic legal declaration',type:'sensitive_user_owned',required:true}]:[])]},{key:'resume',label:'Resume',required:true,fields:[{key:'cv',label:'Resume',type:'file_upload',required:true,value:m.id}]}]}).plan;
  apps.push({app,job,material:m,plan});
  }
  return {...e,apps};
