@@ -53,18 +53,35 @@ export async function fillGroup(tab, group, { authorization, origin, saveBefore,
     assert(authorization && authorization.origin === origin && Date.parse(authorization.expires_at) > Date.now(), 'approval_required', '需要本次有效授权。');
     assert(typeof saveBefore === 'function' && typeof saveAfter === 'function', 'durable_draft_required', '执行前后必须连接草稿保存回调。');
     const observed = [], before = [];
-    let saved = false, failure, retried = false, activeField;
+    let saved = false, failure, activeField;
+    const refreshed = new Set();
     async function boundary(f) {
         const actualUrl = typeof tab.url === 'function' ? await tab.url() : null;
         assert(actualUrl && new URL(actualUrl).origin === origin, 'origin_changed', '当前浏览器接收方不匹配。');
         assert(Date.parse(authorization.expires_at) > Date.now(), 'lease_expired', '执行占用已到期，保留进度后复用适用授权续期。');
         if (f && authorization.field_grants) assert(authorization.field_grants[f.key] === fieldDigest(f), 'approval_required', '此字段内容变化，现有授权不适用。');
     }
-    const read = async f => {
+    const readOnce = async f => {
         const value = f.type === 'file_upload' ? await readUpload(f) : await (readField ?? (x => readControl(tab, x)))(f);
         assert(value?.key === f.key, 'observation_mismatch', '回读必须对应当前字段。');
         return value;
     };
+    const read = async f => {
+        try { return await readOnce(f); }
+        catch (e) {
+            if (!refreshField || refreshed.has(f.key) || !['ambiguous_locator', 'host_method_unavailable'].includes(e.code)) throw e;
+            refreshed.add(f.key);
+            // Only locators may change, even if a host callback mutates its input.
+            // Recovery is read-only and is never a reason to repeat a write.
+            const fresh = await refreshField(structuredClone(f));
+            Object.assign(f, { locator: fresh?.locator, selected_locator: fresh?.selected_locator });
+            await boundary(f);
+            return readOnce(f);
+        }
+    };
+    const retained = (f, state) => f.type === 'file_upload'
+        ? state.upload_complete && state.file_name === assertExternalFilename(f.local_file)
+        : equal(state.value, f.value) && (f.type !== 'portal_select' || state.selected);
     const persist = async () => saveAfter({ group: group.key, before: before.map(toObservation), fields: observed.map(toObservation) });
     try {
         await boundary();
@@ -75,16 +92,7 @@ export async function fillGroup(tab, group, { authorization, origin, saveBefore,
                 assertExternalFilename(f.local_file);
                 assert(typeof readUpload === 'function', 'upload_adapter_required', '附件需要真实门户回读，不能用控件数量冒充校验。');
             }
-            let current;
-            try { current = await read(f); }
-            catch (e) {
-                if (!refreshField || retried || !['ambiguous_locator', 'host_method_unavailable'].includes(e.code)) throw e;
-                retried = true;
-                // Refresh only locators. Never allow a recovery callback to change approved content.
-                const fresh = await refreshField(f);
-                Object.assign(f, { locator: fresh.locator, selected_locator: fresh.selected_locator });
-                current = await read(f);
-            }
+            const current = await read(f);
             assert(current.read_state !== 'unreadable', 'field_unreadable', '尚未读到字段值；先使用当前宿主的视觉或表单读取，不当作空值。');
             const prior = priorObservations?.find(x => x.key === f.key);
             if (prior && !equal(toObservation(prior), toObservation(current)) && !equal(current.value, f.value))
@@ -97,7 +105,13 @@ export async function fillGroup(tab, group, { authorization, origin, saveBefore,
             if (f.manual || f.type === 'sensitive_user_owned') continue;
             activeField = f;
             await boundary(f);
-            const old = before.find(v => v.key === f.key);
+            const initial = before.find(v => v.key === f.key);
+            const old = await read(f);
+            assert(old.read_state !== 'unreadable', 'field_unreadable', '写入前尚未读到字段值。');
+            if (!equal(toObservation(initial), toObservation(old)) && !retained(f, old)) {
+                observed.push(old);
+                throw new Fault('user_edit_conflict', '页面存在新的修改，保留该区域并先完成其他区域。');
+            }
             if (f.type !== 'file_upload' && equal(old?.value, f.value) && (f.type !== 'portal_select' || old.selected)) {
                 observed.push(old); await persist(); continue;
             }
@@ -138,15 +152,30 @@ export async function fillGroup(tab, group, { authorization, origin, saveBefore,
             if (f.type === 'file_upload') assert(state.upload_complete && state.file_name === assertExternalFilename(f.local_file), 'upload_not_verified', '附件尚未上传完成或正式名称不符。');
             else assert(equal(state.value, f.value) && (f.type !== 'portal_select' || state.selected), 'value_not_retained', '页面实际值尚未保持目标状态。');
         }
-        if (savePortal) {
+        const fields = group.fields.filter(f => !f.manual && f.type !== 'sensitive_user_owned');
+        if (savePortal || fields.length > 1) {
             await boundary();
-            await savePortal();
-            observed.length = 0;
-            for (const f of group.fields.filter(f => !f.manual && f.type !== 'sensitive_user_owned')) observed.push(await read(f));
-            await saveAfter({ group: group.key, before: before.map(toObservation), fields: observed.map(toObservation), portal_saved: true });
-            for (const f of group.fields.filter(f => !f.manual && f.type !== 'sensitive_user_owned')) {
+            if (savePortal) { await savePortal(); await boundary(); }
+            const prior = observed.map(toObservation);
+            // Later controls or portal saves may reset earlier values. Completion
+            // must describe the final group, not a series of earlier successes.
+            for (const f of fields) {
+                activeField = f;
+                let state;
+                try { state = await read(f); }
+                catch (e) {
+                    const index = observed.findIndex(o => o.key === f.key);
+                    if (index >= 0) observed[index] = { key: f.key, read_state: 'unreadable' };
+                    throw e;
+                }
+                const index = observed.findIndex(o => o.key === f.key);
+                if (index < 0) observed.push(state); else observed[index] = state;
+            }
+            if (savePortal) await saveAfter({ group: group.key, before: before.map(toObservation), fields: observed.map(toObservation), portal_saved: true });
+            else if (!equal(prior, observed.map(toObservation))) await persist();
+            for (const f of fields) {
                 const state = observed.find(x => x.key === f.key);
-                assert(f.type === 'file_upload' ? state.upload_complete && state.file_name === assertExternalFilename(f.local_file) : equal(state.value, f.value) && (f.type !== 'portal_select' || state.selected), 'portal_save_not_verified', '暂存后内容缺失或变化，不能宣称已保存。');
+                assert(retained(f, state), savePortal ? 'portal_save_not_verified' : 'value_not_retained', savePortal ? '暂存后内容缺失或变化，不能宣称已保存。' : '后续控件改变了已填内容，需先回读并恢复，不能重复执行整组。');
             }
         }
         return { key: group.key, fields: observed.map(toObservation), portal_saved: !!savePortal };

@@ -1,9 +1,10 @@
 import { assert, consent, hash, now, iso, noSecrets, publicUrl } from './core.mjs';
 import { facts, coverage, profileDigest } from './profile.mjs';
-import { collectionStatus, saveJobs, assessJobs, createApplication, readAssessment } from './jobs.mjs';
+import { collectionStatus, saveJobs, assessJobs, prepareApplicationChoices, readAssessment } from './jobs.mjs';
 import { compareFitAssessments, isRecommendable } from './fit-assessment.mjs';
 import { diffRankings, renderComparisonReport, assessmentDisposition } from './comparison.mjs';
-import { registerCompany, setOpportunity, opportunity, companyMatches, scopeKey, submitted, migrateCompanies, linkApplication, previouslyApplied } from './opportunities.mjs';
+import { registerCompany, setOpportunity, opportunity, companyMatches, scopeKey, submitted, migrateCompanies, linkApplication, previouslyApplied, applicationChoiceKey, cancelLocalPreparations, jobObservationCurrent } from './opportunities.mjs';
+import { companyApplicationStrategy, MAX_COMPANY_CHOICES } from './application-strategy.mjs';
 
 export const DAILY_DEFAULTS = Object.freeze({ timezone: 'Asia/Shanghai', time: '09:00', target_companies: 5,
     metadata_limit: 20, company_limit: 5, assessment_limit: 100, minutes: 20, expansion_limit: 1, intro_days: 30 });
@@ -40,7 +41,7 @@ function scopeReady(store, run, company, scope) {
     const source = sourceState(store, company, scope, run.mode);
     const { collection, jobs } = scopedJobs(store, company, scope, run.mode);
     return source?.state === 'verified' && source.checked_date === run.date &&
-        collectionStatus(store, collection).complete && collectionStatus(store, collection).live_verified && jobs.every(j => j.source === 'official' && validAssessment(store, j));
+        collectionStatus(store, collection).complete && collectionStatus(store, collection).live_verified && jobs.every(j => j.source === 'official' && jobObservationCurrent(j) && validAssessment(store, j));
 }
 function candidates(store, run) {
     return store.all('company').filter(c => {
@@ -120,7 +121,7 @@ function nextTaskSingle(store, runId, blocked = new Set(), allocationSlots) {
             const source = sourceState(store, company, scope, run.mode);
             if (opportunity(store, company, scope, run.mode).state === 'needs_verification' || !currentDay(source?.checked_date, run.timezone) || source.state === 'blocked') continue;
             const { collection, jobs } = scopedJobs(store, company, scope, run.mode);
-            if (source.state !== 'verified' || !collectionStatus(store, collection).complete || !collectionStatus(store, collection).live_verified) {
+            if (source.state !== 'verified' || !collectionStatus(store, collection).complete || !collectionStatus(store, collection).live_verified || jobs.some(job => !jobObservationCurrent(job))) {
                 const available = c.assessment_limit - b.downloaded - (b.reserved_downloaded ?? 0);
                 if (attempted('collect', company, scope) || available <= 0) continue;
                 const detailLimit = allocationSlots ? Math.min(available, Math.ceil(available / allocationSlots)) : available;
@@ -168,34 +169,54 @@ function nextTask(store, runId, limit) {
     return { tasks, budget: budget(store, run), ...(tasks.length ? {} : { next: '调用 report 保存完整推荐及未完成原因；不为凑够五家公司扩大今天预算。' }) };
 }
 function buildReport(store, run) {
-    const c = config(store), cards = [], pending = [];
+    const c = config(store), cards = [], pending = [], applicationStrategies = [];
     for (const { company, scopes, pending: retained } of candidates(store, run)) {
+        const evaluated = scopes.flatMap(scope => scopedJobs(store, company, scope, run.mode).jobs.map(job => ({ job, scope, assessment: validAssessment(store, job) })));
+        const strategy = companyApplicationStrategy(store, company, { mode: run.mode, scopes, candidates: evaluated,
+            reviewed_scopes: scopes.filter(scope => scopeReady(store, run, company, scope)).map(scopeKey) });
+        applicationStrategies.push(strategy);
         const reason = !fresh(company.introduction?.observed_at, c.intro_days) ? 'company_introduction_pending' : scopes.some(s => opportunity(store, company, s, run.mode).state === 'needs_verification') ? 'opportunity_unverified' :
             scopes.some(s => !scopeReady(store, run, company, s)) ? 'scope_review_incomplete' : null;
         if (reason) { pending.push({ company_id: company.id, company: company.name, reason }); continue; }
-        const items = scopes.flatMap(scope => scopedJobs(store, company, scope, run.mode).jobs.map(job => ({ job, scope, assessment: validAssessment(store, job) })))
-            .filter(({ job: j, assessment: a }) => j.source === 'official' && j.state === 'open' && (!j.deadline || Date.parse(j.deadline) > Date.now()) && a && isRecommendable(a) &&
+        const ranked = evaluated
+            .filter(({ job: j, assessment: a }) => j.source === 'official' && jobObservationCurrent(j) && j.state === 'open' && (!j.deadline || Date.parse(j.deadline) > Date.now()) && a && isRecommendable(a) &&
                 !previouslyApplied(store,j) &&
                 (() => { const f = store.get('feedback', j.id, false); return !f || f.decision === 'save' || f.decision === 'defer' && f.until && Date.parse(f.until) <= Date.now(); })())
-            .sort((a,b) => compareFitAssessments(a.assessment,b.assessment))
-            .slice(0, 3).map(({ job: j, scope, assessment: a }) => ({ job_id: j.id, job_hash: j.content_hash, title: j.title, url: j.url, locations: j.locations ?? [], deadline: j.deadline ?? null,
+            .sort((a,b) => compareFitAssessments(a.assessment,b.assessment));
+        const recommended = new Map(strategy.choices.map((choice, index) => [choice.job_id, index]));
+        const distinct = new Map();
+        for (const entry of [...ranked.filter(({ job }) => recommended.has(job.id)).sort((a, b) => recommended.get(a.job.id) - recommended.get(b.job.id)), ...ranked.filter(({ job }) => !recommended.has(job.id))]) {
+            const key = hash([scopeKey(entry.job), applicationChoiceKey(entry.job)]);
+            if (!distinct.has(key)) distinct.set(key, entry);
+        }
+        const items = [...distinct.values()].slice(0, Math.min(MAX_COMPANY_CHOICES, Math.max(3, strategy.choices.length)))
+            .map(({ job: j, scope, assessment: a }) => ({ job_id: j.id, job_hash: j.content_hash, title: j.title, url: j.url, locations: j.locations ?? [], deadline: j.deadline ?? null,
                 tier: a.tier, service_object:a.service_object, core_deliverable:a.core_deliverable, hard_gates:a.hard_gates, evidence_refs:a.evidence_refs,
                 track:j.track, campaign:j.campaign, eligibility: a.eligibility, reason: a.reason, advantages: a.advantages, gaps: a.gaps,
                 risks: [...a.gaps, ...a.mappings.filter(m => ['unknown', 'gap'].includes(m.relation)).map(m => m.reason), ...[opportunity(store,company,scope,run.mode).note].filter(Boolean)],
                 opportunity: opportunity(store, company, scope, run.mode), verified_at: sourceState(store, company, scope, run.mode).checked_at }));
         if (!items.length) { pending.push({ company_id: company.id, company: company.name, reason: 'no_matching_open_jobs' }); continue; }
-        cards.push({ company_id: company.id, company: company.name, introduction: company.introduction, retained, items });
+        cards.push({ company_id: company.id, company: company.name, introduction: company.introduction, retained, items, application_strategy: strategy });
         if (cards.length >= c.target_companies) break;
     }
     const tasks = store.all('daily_task').filter(t => t.run_id === run.id && t.state !== 'done').map(t => ({ kind: t.kind, company_id: t.company_id, state: t.state, reason: t.reason ?? 'in_progress' }));
-    return { cards: cards.map((c, i) => ({ ...c, label: String.fromCharCode(65 + i) })), pending, tasks };
+    return { cards: cards.map((c, i) => ({ ...c, label: String.fromCharCode(65 + i) })), pending, tasks, application_strategies: applicationStrategies };
 }
 function reconcileTodos(store, mode) {
     for (const todo of store.all('daily_todo').filter(t => t.mode === mode && t.state === 'pending')) {
         const snapshot = store.get('daily_report', todo.report_id, false);
         const card = snapshot?.cards.find(c => c.company_id === todo.company_id);
-        if (card?.items.some(i => store.all('application').some(a => a.mode === mode && a.job_id === i.job_id && submitted(a))))
-            store.put('daily_todo', todo.id, { ...todo, state: 'completed' });
+        if (!card) continue;
+        const company = store.get('company', todo.company_id, false), run = store.get('daily_run', snapshot.run_id, false);
+        if (!company || !run) continue;
+        const applications = store.all('application').filter(app => (app.mode ?? 'live') === mode && companyMatches(company, app.company));
+        const selected = todo.application_ids?.length ? applications.filter(app => todo.application_ids.includes(app.id)) : applications.filter(app => card.items.some(item => item.job_id === app.job_id));
+        if (!selected.length || selected.some(app => !submitted(app) && app.stage !== 'cancelled_preparation') || applications.some(app => app.stage === 'preparing')) continue;
+        const scopes = eligibleScopes(store, company, mode);
+        const strategy = companyApplicationStrategy(store, company, { mode, scopes,
+            candidates: scopes.flatMap(scope => scopedJobs(store, company, scope, mode).jobs.map(job => ({ job, assessment: validAssessment(store, job) }))),
+            reviewed_scopes: scopes.filter(scope => scopeReady(store, run, company, scope)).map(scopeKey) });
+        if (!strategy.choices.length && strategy.status !== 'needs_verification') store.put('daily_todo', todo.id, { ...todo, state: 'completed' });
     }
 }
 function report(store, runId) {
@@ -243,7 +264,10 @@ function report(store, runId) {
         status: result.cards.length >= c.target_companies ? 'ready' : result.cards.length ? 'partial' : 'blocked',
         shortage: Math.max(0, c.target_companies - result.cards.length), budget: budget(store, run) });
     if (notify) store.put('settings', `daily_notice_${run.mode}`, { digest, report_id: snapshot.id, state: 'reserved', reserved_at: now() });
-    for (const card of result.cards) store.put('daily_todo', hash([card.company_id, run.mode]), { company_id: card.company_id, mode: run.mode, state: 'pending', report_id: snapshot.id });
+    for (const card of result.cards) {
+        const key = hash([card.company_id, run.mode]), previous = store.get('daily_todo', key, false);
+        store.put('daily_todo', key, { ...previous, company_id: card.company_id, mode: run.mode, state: 'pending', report_id: snapshot.id });
+    }
     store.put('daily_run', run.id, { ...run, state: snapshot.status, report_id: snapshot.id, finished_at: now() });
     const binding = store.get('settings', 'daily_scheduler', false);
     if (binding && run.mode === 'live' && (!historical || binding.last_run?.id === run.id))
@@ -320,11 +344,14 @@ export function daily(store, a) {
             if (unchanged) assert(a.fingerprint && a.fingerprint === source?.fingerprint && source.complete && ['complete_jd_manifest', 'revalidated_details'].includes(a.change_basis), 'change_unverified', '没有上次完整范围的相同可靠标识，需重新采集。');
             if (task.kind === 'collect' && a.state === 'done') assert(collectionStatus(store, scopedJobs(store, company, task.scope, run.mode).collection).complete, 'collection_incomplete', '完整目录和 JD 尚未齐全。');
             if (unchanged && a.state === 'done') {
-                const { collection } = scopedJobs(store, company, task.scope, run.mode);
+                const { collection, jobs } = scopedJobs(store, company, task.scope, run.mode);
                 assert(collection, 'collection_incomplete', '没有可复用的完整范围。');
                 assert(a.live_entries?.length && a.live_checked_at, 'live_list_required', '推荐前须重新读取全部公开列表，并保存本次入口编号与观察时间。');
                 const refreshed = saveJobs(store,{jobs:[],mode:run.mode,coverage:'explicit_scope_complete',collection:{...collection,entries:collection.entries??[{source_url:collection.source_url,track:collection.track,campaign:collection.campaign,external_ids:collection.external_ids,complete:collection.complete,observed_at:collection.observed_at}],observed_at:now(),live_entries:a.live_entries,live_checked_at:a.live_checked_at}});
                 assert(refreshed.collection.complete && refreshed.collection.live_verified,'live_list_changed','当前目录编号或入口范围已变化，请按 changed=true 重新采集当前完整范围。');
+                // The unchanged assertion covers complete JD content, not just the list.
+                // Keep its content hash and assessments, but record this observation.
+                for (const job of jobs) store.put('job', job.id, { ...job, observed_at: now() });
             }
             store.put('daily_source', sourceKey(company.id, task.scope, run.mode), { ...source, company_id: company.id, scope: task.scope, mode: run.mode,
                 state: a.state === 'blocked' ? 'blocked' : a.state === 'partial' ? 'partial' : task.kind === 'collect' || unchanged ? 'verified' : 'changed',
@@ -370,24 +397,35 @@ export function daily(store, a) {
         return store.put('settings', `daily_notice_${run.mode}`, { digest: snapshot.digest, state: 'delivered', report_id: snapshot.id, result_ref: a.result_ref, delivered_at: now() });
     }
     if (a.operation === 'feedback') {
-        consent(a.confirmed, a.user_ref); store.get('company', a.company_id);
+        consent(a.confirmed, a.user_ref); const company = store.get('company', a.company_id);
         const mode = a.mode ?? 'live';
         const f = store.put('daily_feedback', hash([a.company_id, mode]), { company_id: a.company_id, decision: a.decision, until: a.until ? iso(a.until) : null });
         if (a.decision !== 'save') store.put('daily_todo', hash([a.company_id, mode]), { company_id: a.company_id, mode, state: a.decision });
-        return f;
+        return a.decision === 'reject' ? { ...f, preparation_cancellation: cancelLocalPreparations(store,
+            store.all('application').filter(app => (app.mode ?? 'live') === mode && companyMatches(company, app.company)), { user_ref: a.user_ref }) } : f;
     }
     if (a.operation === 'choose') {
         consent(a.confirmed, a.user_ref);
+        assert(Number(a.role_number !== undefined) + Number(a.role_numbers !== undefined) === 1, 'invalid_selection', '请使用一个岗位编号或一组岗位编号，不能同时提供两种选择。');
+        const numbers = a.role_numbers ?? [a.role_number];
+        assert(numbers.length > 0 && new Set(numbers).size === numbers.length && numbers.every(number => Number.isSafeInteger(number) && number > 0 && number <= MAX_COMPANY_CHOICES), 'invalid_selection', '请选择不重复且存在的岗位编号。');
         const snapshot = store.get('daily_report', a.report_id), run = store.get('daily_run', snapshot.run_id);
         const oldCard = snapshot.cards.find(c => c.label === a.label);
         assert(oldCard, 'invalid_selection', '这份日报没有该公司编号。');
         assert(currentDay(run.date, run.timezone), 'daily_report_stale', '先只读核验今天的岗位与名额，再继续这家公司。');
         const current = buildReport(store, run).cards.find(c => c.company_id === oldCard.company_id);
-        const selected = oldCard.items[a.role_number - 1];
-        assert(selected && current?.items.some(i => i.job_id === selected.job_id && i.job_hash === selected.job_hash), 'daily_report_stale', '岗位、画像或名额有变化，请更新推荐，不消耗机会。');
-        const application = createApplication(store, selected.job_id, a.user_ref, selected.job_hash);
+        const selected = numbers.map(number => oldCard.items[number - 1]);
+        assert(selected.every(item => item && current?.items.some(i => i.job_id === item.job_id && i.job_hash === item.job_hash)), 'daily_report_stale', '岗位、画像或名额有变化，请更新推荐，不消耗机会。');
+        const applications = prepareApplicationChoices(store, selected, a.user_ref), application = applications[0];
+        const key = hash([oldCard.company_id, run.mode]), todo = store.get('daily_todo', key, false);
+        store.put('daily_todo', key, { ...todo, company_id: oldCard.company_id, mode: run.mode, state: 'pending', report_id: snapshot.id,
+            application_ids: [...new Set([...(todo?.application_ids ?? []), ...applications.map(app => app.id)])] });
         store.put('settings', 'focus', { kind: 'application', application_id: application.id, operation: 'choose' });
-        return { application };
+        const company = store.get('company', oldCard.company_id), scopes = eligibleScopes(store, company, run.mode);
+        const strategy = companyApplicationStrategy(store, company, { mode: run.mode, scopes,
+            candidates: scopes.flatMap(scope => scopedJobs(store, company, scope, run.mode).jobs.map(job => ({ job, assessment: validAssessment(store, job) }))),
+            reviewed_scopes: scopes.filter(scope => scopeReady(store, run, company, scope)).map(scopeKey), preferred_job_ids: selected.map(item => item.job_id) });
+        return { application, applications, application_strategy: strategy };
     }
 }
 export function dailyFlow(data) {

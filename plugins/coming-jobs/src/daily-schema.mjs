@@ -20,7 +20,7 @@ export function dailySchema(JOB, COLLECTION, ASSESSMENT) {
         OP('assess', { ...run, assessments: A(ASSESSMENT, 10) }), OP('report', { run_id: S(100) }),
         OP('acknowledge', { report_id: S(100), result_ref: S(1000) }),
         OP('feedback', { company_id: S(100), mode: E('live', 'demo'), decision: E('save', 'reject', 'defer'), until: S(80), ...approval }, ['company_id', 'decision', 'confirmed', 'user_ref']),
-        OP('choose', { report_id: S(100), label: E('A', 'B', 'C', 'D', 'E'), role_number: I(1, 3), ...approval }),
+        OP('choose', { report_id: S(100), label: E('A', 'B', 'C', 'D', 'E'), role_number: I(1, 100), role_numbers: A(I(1, 100), 100), ...approval }, ['report_id', 'label', 'confirmed', 'user_ref']),
         OP('bind', { host_success: B, provider_task_id: S(300), target_thread_id: S(100), result_ref: S(1000) }),
         OP('health', { state: E('paused', 'failed', 'needs_rebind', 'host_reported_active'), result_ref: S(1000) })
     ] };

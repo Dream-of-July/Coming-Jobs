@@ -1,4 +1,5 @@
 import { materialIndex } from './material-index.mjs';
+import { resolveFormProfile } from './form-profile.mjs';
 import { agentTasks } from './tasks.mjs';
 import { executionCheckpoint } from './execution.mjs';
 import { experience } from './experience.mjs';
@@ -29,11 +30,11 @@ export const handlers = {
         return { task: active, current_application: activeId && s.get('application', activeId, false) ? applicationContext(s, activeId) : null, coverage: coverage(s), facts: facts(s, a.scope === 'profile' ? null : 'matching'), fit_context: candidateFitContext(s), proposals: s.all('proposal').filter(p => p.state === 'proposed'),
             question: nextQuestion(s), applications: s.all('application').map(({ id, company, title, stage, submission_evidence }) => ({ id, company, title, stage, submission_evidence })),
             preferences: s.get('settings', 'preferences', false), schedule: s.get('settings', 'schedule', false), daily: dailySummary(s), templates: TEMPLATES,
-            capabilities: { lightweight_tasks: 'host_subagents_required', preferred_worker: 'gpt-5.6-luna', worker_reasoning: 'medium', max_workers: 3, storage: 'available', form_planning: 'available', web_search: 'host_required', browser: 'host_required', figma: 'host_connection_required',
+            capabilities: { lightweight_tasks: 'host_subagents_required', preferred_worker: 'gpt-5.6-luna', worker_reasoning: 'medium', max_workers: 3, storage: 'available', form_planning: 'available', form_profile: 'available', company_choice_strategy: 'available', approved_resume_reuse: 'available', login_codes: 'authorized_host_adapter_required', web_search: 'host_required', browser: 'host_required', figma: 'host_connection_required',
                 chatgpt_memory: 'host_tool_or_authorized_export', transcription: 'host_required', email_sms: 'authorized_host_connector_or_manual_read', scheduler: 'host_required', final_submit: 'human_only' },
             recent_handoff: a.session_id ? s.get('turn', a.session_id, false) : null };
     },
-    material_index: materialIndex, tasks: agentTasks, experience, daily, comparison, remember, profile: (s,a) => a.operation === 'fit_context' ? saveFitProfile(s,a) : controlProfile(s,a), jobs: (s, a) => a.operation === 'ingest' ? saveJobs(s, a) : assessJobs(s, a), shortlist, material: materialAction,
+    form_profile: resolveFormProfile, material_index: materialIndex, tasks: agentTasks, experience, daily, comparison, remember, profile: (s,a) => a.operation === 'fit_context' ? saveFitProfile(s,a) : controlProfile(s,a), jobs: (s, a) => a.operation === 'ingest' ? saveJobs(s, a) : assessJobs(s, a), shortlist, material: materialAction,
     plan: planApplication, authorize, checkpoint: (s,a) => a.phase ? executionCheckpoint(s,a) : checkpoint(s,a), recover: recovery, review, handoff, outcome: recordOutcome, followup, interview, workspace, finish: finishTurn
 };
 export function call(store, name, args = {}) {

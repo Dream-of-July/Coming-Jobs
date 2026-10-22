@@ -19,7 +19,7 @@
 > **Test release · Optimized exclusively for Codex Desktop.** The reference environment is macOS. Other agent hosts, operating systems and unattended submission are not supported or promised by this beta. This is an independent project, not an OpenAI product.
 
 
-> **beta.10** adds [Luna workers and material indexing](docs/LIGHTWEIGHT.md).
+> **Current source: beta.14** improves known-field completion, company choices, resume reuse and authorized verification-code handling. See [workflow changes](docs/WORKFLOW-RELIABILITY.md). Download links below still refer to the published beta.10 package; updating source does not update an installed plugin.
 
 ## Less administration. More attention to the right opportunity.
 
@@ -34,7 +34,7 @@ Job searching scatters your attention across company pages, resume versions, for
 | **Learn cautiously** | Keep scoped operation strategies as candidates. Reuse requires synthetic validation and a fresh read-only page match. |
 | **Close the loop** | Track recorded applications and prepare interviews against the material actually submitted, when that version is known. |
 
-**You review the material and make the final submission.** Login, verification codes and necessary declarations remain human steps. Browser access, scheduling and external research come from the authorized Codex Desktop host.
+**You review the material and make the final submission.** The host can handle login and one-time codes when its capabilities and existing user authorization cover the action. Codes stay out of saved application data. Human-verification challenges and necessary declarations remain user steps. Browser access, scheduling and external research come from the authorized Codex Desktop host.
 
 ## Start with one conversation
 
@@ -82,13 +82,14 @@ Personal facts, materials, draft observations and experience records live in a p
 
 ## Built for careful testing
 
-This beta carries **212 automated regression tests**. The preceding runtime also completed a real Codex Desktop synthetic test of an eight-field ordinary batch, including persisted preparation and returned field observations. Complex portal controls and attachment behavior still need site-specific verification; a synthetic success is not proof that every recruiting site is supported.
+The current source includes automated regression coverage for whole-form completeness, company-scoped facts, multiple choices, resume rewriting and ephemeral verification codes, alongside the existing runtime tests. The preceding runtime also completed a real Codex Desktop synthetic test of an eight-field ordinary batch, including persisted preparation and returned field observations. Complex portal controls and attachment behavior still need site-specific verification; a synthetic success is not proof that every recruiting site is supported.
 
 [Read the validation scope and known limitations →](docs/TESTING.md)
 
 - **Ready to test:** confirmed context, shortlists, resume completeness, ordinary field batches, recovery and application records.
 - **Experimental:** dynamic school/date controls, portal parsing, operation-experience reuse and scheduled host execution.
-- **Human-owned:** authentication, necessary declarations, final submission and assessments.
+- **Host-dependent:** authorized login, one-time-code retrieval and entry.
+- **Human-owned:** human-verification challenges, necessary declarations, final submission and assessments.
 
 Documentation is available in **English and 简体中文**. You can ask the agent to converse in either language; some built-in validation and dashboard messages remain Chinese in this beta.
 

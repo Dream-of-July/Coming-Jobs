@@ -6,6 +6,8 @@ import os from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { assert, consent, noSecrets, hash, id, now, publicUrl } from './core.mjs';
 import { facts } from './profile.mjs';
+import { MATERIAL_INDEX_PARSER_VERSION } from './material-index.mjs';
+import { normalizeResumeText, resumeText, assertNumbersSupported, baselineMappings, baselineCoverage, assertBaselineCovered, resumeQuality } from './resume-quality.mjs';
 export const TEMPLATES = [
     { id: 'classic', name: '经典设计', route: '真实 Figma 导出或用户现有 PDF；不得冒充已连接' },
     { id: 'projects', name: '项目精选', route: '内置 A4 内容丰富模板' },
@@ -27,39 +29,115 @@ export function browserExecutable() {
         process.env['PROGRAMFILES(X86)'] ? path.join(process.env['PROGRAMFILES(X86)'], 'Microsoft/Edge/Application/msedge.exe') : null];
     return candidates.find(p => p && existsSync(p)) ?? null;
 }
-export function validateContent(store, content) {
-    const fs = new Map(facts(store, 'resume').map(f => [f.id, f]));
+const resumeFacts = (store, company) => new Map(facts(store, 'resume', company ? `company:${company}` : 'global').map(f => [f.id, f]));
+const materialCompany = (store, material) => material.job_id ? store.get('job', material.job_id).company : null;
+const mergeEvidence = (...groups) => [...new Map(groups.flat().map(e => [e.id, e])).values()];
+const baselineInventoryHash = base => base ? hash(base.items) : null;
+export function validateContent(store, content, company = null) {
+    const fs = resumeFacts(store, company);
+    noSecrets(content);
     for (const section of content.sections)
         for (const item of section.items) {
-            noSecrets(item.text);
             assert(item.evidence_ids.length > 0 && item.evidence_ids.every(e => fs.has(e)), 'resume_evidence', '每段简历内容需要已确认且允许用于简历的事实。');
-            // This is a numeric lint, not a claim of semantic truth verification.
-            const evidence = item.evidence_ids.map(e => JSON.stringify(fs.get(e).value)).join(' ');
-            const numbers = item.text.match(/\d+(?:\.\d+)?%?/g) ?? [];
-            assert(numbers.every(n => evidence.includes(n)), 'unbacked_number', '简历中的数字没有出现在引用事实中。', '先检查事实来源，不能编造成果。');
+            assertNumbersSupported(item.text, item.evidence_ids.map(e => fs.get(e)));
         }
     const used = [...new Set(content.sections.flatMap(s => s.items.flatMap(i => i.evidence_ids)))];
     return used.map(e => ({ id: e, digest: hash(fs.get(e).value) }));
 }
-const normalizeText = value => value.normalize('NFKC').replace(/\s+/gu, '');
-export function assertCompleteness(store, material) {
+const normalizeText = normalizeResumeText;
+function assertEvidenceCurrent(store, m) {
+    if (!m.evidence) return;
+    const current = resumeFacts(store, materialCompany(store, m));
+    assert(m.evidence.every(e => current.has(e.id) && hash(current.get(e.id).value) === e.digest), 'material_evidence_changed', '简历引用的事实已更正、撤回或过期。', '只更新受影响内容并重新审核，不能沿用旧授权。');
+}
+function boundTextEvidence(store, material) {
+    if (!material.asset) return null;
+    if (material.text_evidence?.sha256 === material.asset.sha256 && typeof material.text_evidence.text === 'string') return material.text_evidence;
+    const cached = store.get('material_index_cache', hash(['material-index-cache', material.asset.sha256, MATERIAL_INDEX_PARSER_VERSION]), false);
+    if (cached?.verified === true && cached.sha256 === material.asset.sha256 && hash(cached.text) === cached.text_hash)
+        return { sha256: cached.sha256, text: cached.text, extraction_ref: cached.extraction_ref, method: cached.method };
+    return null;
+}
+function currentBaseline(store) {
     const base = store.get('settings', 'resume_baseline', false);
-    if (!base || material.kind !== 'resume') return;
-    assert(store.get('material', base.material_id).asset?.sha256 === base.sha256, 'stale_baseline', '基础文件发生变化，需要重新确认基线。');
-    assert(material.id === base.material_id && material.asset?.sha256 === base.sha256 || material.base_id === base.material_id && material.base_sha256 === base.sha256,
-        'resume_baseline_required', '简历没有关联当前已确认的完整基线，不能按文件时间猜测。');
-    assert(material.text_evidence?.sha256 === material.asset?.sha256, 'resume_text_required', '需要与实际 PDF 哈希绑定的文本提取核验。');
-    const text = normalizeText(material.text_evidence.text);
-    assert(base.items.every(item => text.includes(normalizeText(item.text))), 'resume_incomplete', '简历缺少基线中的经历、成果、获奖或链接；先补齐并审核。');
+    if (!base) return null;
+    const material = store.get('material', base.material_id);
+    assert(material.approved && material.asset?.sha256 === base.sha256, 'stale_baseline', '基础文件发生变化，需要重新确认基线。');
+    store.assetPath(material.asset);
+    assertEvidenceCurrent(store, material);
+    return base;
+}
+export function assertCompleteness(store, material) {
+    if (material.kind !== 'resume') return;
+    const base = currentBaseline(store);
+    if (!base && !(material.asset && material.content)) return;
+    if (base) assert(material.id === base.material_id && material.asset?.sha256 === base.sha256 || material.base_id === base.material_id && material.base_sha256 === base.sha256,
+            'resume_baseline_required', '简历没有关联当前已确认的完整基线，不能按文件时间猜测。');
+    const textEvidence = boundTextEvidence(store, material);
+    assert(textEvidence, 'resume_text_required', '需要与实际 PDF 哈希绑定的文本提取核验。', '使用已有提取结果；首次生成且没有基线时，可通过 material_index(cache_host_text) 登记实际 PDF 的文本与提取依据。');
+    if (material.content) {
+        const c = material.content;
+        const parts = [c.name, c.headline, c.contact ?? '', ...(c.links ?? []).map(l => l.label), ...c.sections.flatMap(s => [s.title, ...s.items.map(i => i.text)])].filter(Boolean);
+        assert(parts.every(part => normalizeText(textEvidence.text).includes(normalizeText(part))), 'resume_pdf_content_mismatch', '实际 PDF 缺少结构化草稿中的文字；不能只靠旧基线存在就通过。', '对照实际 PDF 的姓名、标题、联系方式、各段经历与成果，补齐导出遗漏；如果有意修改文字，先更新草稿并审核差异。');
+    }
+    if (base) {
+        const recordedMappings = material.baseline_mappings ?? [];
+        const mappings = baselineMappings(base, recordedMappings, textEvidence.text, resumeFacts(store, materialCompany(store, material)));
+        assert(mappings.every((mapping, index) => normalizeText(mapping.original) === normalizeText(recordedMappings[index].original)),
+            'resume_mapping_baseline_changed', '基线条目的原文已变化，旧改写审核不能用于另一段原文。', '重新登记 lineage，核对当前原文与改写的逐条差异，再记录适用的内容审核。');
+        assertBaselineCovered(baselineCoverage(base, textEvidence.text, mappings));
+    }
 }
 export function assertMaterialCurrent(store, m) {
     assertCompleteness(store, m);
-    if (!m.evidence)
-        return;
-    const current = new Map(facts(store, 'resume').map(f => [f.id, f]));
-    assert(m.evidence.every(e => current.has(e.id) && hash(current.get(e.id).value) === e.digest), 'material_evidence_changed', '简历引用的事实已更正、撤回或过期。', '只更新受影响内容并重新审核，不能沿用旧授权。');
+    assertEvidenceCurrent(store, m);
 }
 export function materialAction(store, a) {
+    if (a.operation === 'context') {
+        const job = store.get('job', a.job_id);
+        const base = store.get('settings', 'resume_baseline', false);
+        const targetFacts = resumeFacts(store, job.company);
+        const reusable_materials = [], unavailable_materials = [];
+        for (const m of store.all('material').filter(m => m.kind === 'resume' && m.approved)) {
+            try {
+                assertMaterialCurrent(store, m);
+                store.assetPath(m.asset);
+                assert((m.evidence ?? []).every(e => targetFacts.has(e.id) && hash(targetFacts.get(e.id).value) === e.digest), 'resume_evidence', '原简历的事实不适用于目标公司。');
+                const sourceJob = m.job_id ? store.get('job', m.job_id, false) : null;
+                reusable_materials.push({ id: m.id, sha256: m.asset.sha256, name: m.asset.name, job_id: m.job_id ?? null, job_title: sourceJob?.title ?? null, company: sourceJob?.company ?? null, source_material_id: m.source_material_id ?? null, baseline: m.id === base?.material_id,
+                    job_current: m.job_id === job.id && m.job_hash === job.content_hash, approval_ref: m.approval_ref });
+            } catch (error) { unavailable_materials.push({ id: m.id, reason: error.code ?? 'asset_unavailable' }); }
+        }
+        return { job, facts: [...targetFacts.values()], baseline: base,
+            sources: store.all('source').filter(s => s.purposes?.includes('resume')).map(s => ({ id: s.id, label: s.label, kind: s.kind, sha256: s.asset?.sha256 ?? null, bytes: s.asset?.bytes ?? null, format: s.asset?.format ?? null, text_available: typeof s.text === 'string' })),
+            reusable_materials, unavailable_materials, preferences: store.get('settings', 'preferences', false),
+            next: '先用 material_index 按 source_ids 选择相关授权材料并读取文本，核对完整基线；已有审核简历适用时直接 reuse。需要改写时逐条保留原文、事实与新文字对照，先审自然表达和实际贡献，再审核 PDF。' };
+    }
+    if (a.operation === 'reuse') {
+        const source = store.get('material', a.material_id), job = store.get('job', a.job_id);
+        assert(source.kind === 'resume' && source.approved, 'review_required', '只能复用已审核的实际简历。');
+        store.assetPath(source.asset);
+        assertMaterialCurrent(store, source);
+        // Check the target scope as well: a recipient-specific fact must not
+        // become a general qualification through an unchanged PDF copy.
+        const targetFacts = resumeFacts(store, job.company);
+        assert((source.evidence ?? []).every(e => targetFacts.has(e.id) && hash(targetFacts.get(e.id).value) === e.digest), 'resume_evidence', '原简历的事实不适用于目标公司；先核对来源，不能跨公司沿用专属表述。');
+        const base = currentBaseline(store);
+        const inventoryHash = baselineInventoryHash(base);
+        // Identical PDF bytes can have a newly confirmed completeness inventory.
+        // Reassess that report without revoking the unchanged content approval.
+        if (source.job_id === job.id && source.job_hash === job.content_hash && (source.base_inventory_hash ?? null) === inventoryHash) return source;
+        const key = hash(['resume-reuse', source.id, source.asset.sha256, source.evidence ?? [], job.id, job.content_hash, base?.material_id ?? null, base?.sha256 ?? null, inventoryHash]);
+        const textEvidence = boundTextEvidence(store, source);
+        const quality = resumeQuality(source.content, targetFacts, base, source.baseline_mappings ?? [], textEvidence?.text ?? '');
+        const reused = { kind: 'resume', job_id: job.id, job_hash: job.content_hash, asset: source.asset, template: source.template, route: source.route,
+            content: source.content ?? null, evidence: source.evidence ?? null, text_evidence: textEvidence, baseline_mappings: source.baseline_mappings ?? [], quality: { ...quality, editorial_review_required: false, editorial_review_ref: source.approval_ref },
+            base_id: base?.material_id ?? null, base_sha256: base?.sha256 ?? null, base_inventory_hash: inventoryHash, source_material_id: source.id, source_sha256: source.asset.sha256,
+            approved: true, qa: source.qa, approval_ref: source.approval_ref, approved_at: source.approved_at, source_ref: source.source_ref,
+            created_at: store.get('material', key, false)?.created_at ?? now(), change_summary: '复用已有审核文件；内容与 PDF 字节保持一致。' };
+        assertMaterialCurrent(store, reused);
+        return store.put('material', key, reused);
+    }
     if (a.operation === 'variation') {
         consent(a.confirmed, a.user_ref);
         const m = store.get('material', a.material_id);
@@ -71,7 +149,8 @@ export function materialAction(store, a) {
         const fs = new Map(facts(store, 'form', `company:${a.company}`).map(f => [f.id,f]));
         assert(a.evidence_ids.every(id => fs.has(id)), 'evidence_required', '公司例外需要适用的已确认事实。');
         noSecrets(a.text);
-        assert(a.reason !== 'portal_length' || a.max_length && a.text.length <= a.max_length, 'field_length_exceeded', '压缩需记录门户限制，且不得超过限制。');
+        assertNumbersSupported(a.text, a.evidence_ids.map(id => fs.get(id)));
+        assert(a.reason !== 'portal_length' || a.max_length && [...a.text].length <= a.max_length, 'field_length_exceeded', '压缩需记录门户字符限制，且不得超过限制。');
         return store.put('material_variation', hash([m.id,a.company,a.content_key,a.text]), { material_id: m.id, sha256: m.asset.sha256, base_sha256: base.sha256, content_key: a.content_key, company: a.company, text: a.text, original: item.text, reason: a.reason, max_length: a.max_length ?? null, evidence: a.evidence_ids.map(id => ({id,digest:hash(fs.get(id).value)})), user_ref: a.user_ref });
     }
     if (a.operation === 'baseline' || a.operation === 'lineage') {
@@ -91,9 +170,14 @@ export function materialAction(store, a) {
             store.put('settings', 'resume_baseline', { material_id: m.id, sha256: a.sha256, items: a.items, user_ref: a.user_ref });
             return store.put('material', m.id, { ...m, text_evidence });
         }
-        const base = store.get('settings', 'resume_baseline');
+        const base = currentBaseline(store);
+        assert(base, 'resume_baseline_required', '先指定已有审核简历作为当前基线。');
         assert(a.base_id === base.material_id, 'stale_baseline', '指定的基础简历不是当前确认版本。');
-        const updated = { ...m, base_id: base.material_id, base_sha256: base.sha256, text_evidence, approved: false };
+        assert(m.id !== base.material_id, 'resume_self_lineage', '当前基线不能把自己登记为派生简历。', '沿用当前已审核基线，或为岗位创建独立的复用记录或草稿。');
+        const available = resumeFacts(store, materialCompany(store, m));
+        const mappings = baselineMappings(base, a.baseline_mappings ?? m.baseline_mappings ?? [], a.extracted_text, available);
+        const updated = { ...m, base_id: base.material_id, base_sha256: base.sha256, base_inventory_hash: baselineInventoryHash(base), text_evidence, baseline_mappings: mappings,
+            evidence: mergeEvidence(m.evidence ?? [], mappings.flatMap(m => m.evidence)), quality: resumeQuality(m.content, available, base, mappings, a.extracted_text), approved: false };
         assertCompleteness(store, updated);
         return store.put('material', m.id, updated);
     }
@@ -101,24 +185,25 @@ export function materialAction(store, a) {
         return { templates: TEMPLATES, preferences: store.get('settings', 'preferences', false) };
     if (a.operation === 'draft') {
         const job = store.get('job', a.job_id);
-        const evidence = validateContent(store, a.content);
-        const base = store.get('settings', 'resume_baseline', false);
-        if (base) {
-            const text = normalizeText([a.content.name, a.content.headline, ...(a.content.links ?? []).map(l => l.url), ...a.content.sections.flatMap(s => s.items.map(i => i.text))].join(' '));
-            assert(base.items.every(i => text.includes(normalizeText(i.text))), 'resume_incomplete', '岗位版遗漏基线必备内容，不能静默删除或压缩。');
-        }
+        const contentEvidence = validateContent(store, a.content, job.company);
+        const base = currentBaseline(store), available = resumeFacts(store, job.company);
+        const mappings = baselineMappings(base, a.baseline_mappings ?? [], resumeText(a.content), available);
+        const quality = resumeQuality(a.content, available, base, mappings);
+        assertBaselineCovered(quality.baseline);
+        const evidence = mergeEvidence(contentEvidence, mappings.flatMap(m => m.evidence));
         const template = a.template ?? store.get('settings', 'preferences', false)?.template ?? 'projects';
-        const cache = hash([job.content_hash, template, a.content, evidence]);
+        const inventoryHash = baselineInventoryHash(base);
+        const cache = hash([job.id, job.content_hash, template, a.content, evidence, base?.material_id ?? null, base?.sha256 ?? null, inventoryHash, mappings]);
         const prior = store.get('material', cache, false);
         if (prior)
             return prior;
-        return store.put('material', cache, { kind: 'resume', base_id: base?.material_id ?? null, base_sha256: base?.sha256 ?? null, job_id: job.id, job_hash: job.content_hash, template, content: a.content, evidence,
-            approved: false, asset: null, change_summary: a.change_summary, created_at: now(), cache_key: cache });
+        return store.put('material', cache, { kind: 'resume', base_id: base?.material_id ?? null, base_sha256: base?.sha256 ?? null, base_inventory_hash: inventoryHash, job_id: job.id, job_hash: job.content_hash, template, content: a.content, evidence,
+            approved: false, asset: null, baseline_mappings: mappings, quality, change_summary: a.change_summary, created_at: now(), cache_key: cache });
     }
     if (a.operation === 'render') {
         const m = store.get('material', a.material_id);
         assert(m.content, 'content_required', '没有结构化内容，不能调用内置渲染。');
-        validateContent(store, m.content);
+        validateContent(store, m.content, materialCompany(store, m));
         if (m.asset)
             return { material: m, pdf_path: store.assetPath(m.asset), cache_hit: true };
         if (m.template === 'classic')
@@ -153,6 +238,7 @@ export function materialAction(store, a) {
             Object.assign(asset, imageMetadata(bytes, asset.format));
         } else assert(asset.format === 'pdf', 'invalid_pdf', '投递材料必须为 PDF。');
         const old = a.material_id ? store.get('material', a.material_id) : store.get('material', hash([a.kind, asset.sha256, a.job_id]), false);
+        assert(!old || old.kind !== 'resume' && a.kind !== 'resume' || !a.job_id || old.job_id === a.job_id, 'resume_reuse_required', '已有简历不能改写原岗位归属。', '为新岗位使用 material(reuse) 创建独立记录，保留原文件和已有内容审核；需要改写则先创建本岗位草稿。');
         const sameBytes = old?.approved && old.kind === a.kind && old.asset?.sha256 === asset.sha256;
         if (sameBytes) assertMaterialCurrent(store, old);
         const job = a.job_id ? store.get('job', a.job_id) : old?.job_id ? store.get('job', old.job_id) : null;
@@ -167,7 +253,15 @@ export function materialAction(store, a) {
         assertMaterialCurrent(store, m);
         assert(m.asset.sha256 === a.sha256, 'material_changed', '审核的 PDF 与当前文件不一致。');
         assert(a.visual_ok && a.content_ok, 'review_required', '视觉和内容必须分别检查。');
-        return store.put('material', m.id, { ...m, approved: true, qa: { visual: true, content: true, text: a.text_quality }, approval_ref: a.user_ref, approved_at: now() });
+        if (m.kind !== 'resume') return store.put('material', m.id, { ...m, approved: true, qa: { visual: true, content: true, text: a.text_quality }, approval_ref: a.user_ref, approved_at: now() });
+        assert(a.text_quality === 'pass', 'resume_text_review_required', '简历文字尚未通过审核；先核对自然表达、实际贡献、事实和遗漏。');
+        const base = currentBaseline(store), available = resumeFacts(store, materialCompany(store, m));
+        const textEvidence = boundTextEvidence(store, m);
+        const quality = resumeQuality(m.content, available, base, m.baseline_mappings ?? [], textEvidence?.text ?? '');
+        const changed = quality.baseline.items.filter(i => i.state === 'mapped_rewrite').map(i => i.key);
+        assert(changed.every(key => a.reviewed_content_keys?.includes(key)), 'resume_rewrite_review_required', '改写条目需要逐条核对原文与新文字后记录审核。', `核对这些条目的事实、贡献范围及遗漏后，在 reviewed_content_keys 记录已有适用审核：${changed.join('、')}。`);
+        return store.put('material', m.id, { ...m, approved: true, text_evidence: textEvidence, base_inventory_hash: baselineInventoryHash(base), quality: { ...quality, editorial_review_required: false, editorial_review_ref: a.user_ref },
+            qa: { visual: true, content: true, text: a.text_quality, reviewed_content_keys: changed }, approval_ref: a.user_ref, approved_at: now() });
     }
     if (a.operation === 'bind') {
         const app = store.get('application', a.application_id), m = store.get('material', a.material_id);
