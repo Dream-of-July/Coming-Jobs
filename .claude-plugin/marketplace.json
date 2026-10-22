@@ -1,0 +1,13 @@
+{
+  "name": "coming-jobs",
+  "owner": {
+    "name": "Dream-of-July"
+  },
+  "plugins": [
+    {
+      "name": "coming-jobs",
+      "source": "./plugins/coming-jobs",
+      "description": "Local career companion for Codex and Claude"
+    }
+  ]
+}

@@ -9,7 +9,7 @@ import { guidance } from './flow.mjs';
 import { coverage } from './profile.mjs';
 import { metrics, queue } from './followup.mjs';
 export function dashboardView(store) {
-    return { flow: guidance(store), coverage: coverage(store), metrics: metrics(store), queue: queue(store),
+    return { host:currentHost(), flow: guidance(store), coverage: coverage(store), metrics: metrics(store), queue: queue(store),
         facts: store.all('fact').filter(f => f.state === 'confirmed'), proposals: store.all('proposal').filter(p => p.state === 'proposed'),
         batches: store.all('batch'), applications: store.all('application'), materials: store.all('material'), notifications: store.all('notification'),
         preferences: store.get('settings', 'preferences', false), schedule: store.get('settings', 'schedule', false) };

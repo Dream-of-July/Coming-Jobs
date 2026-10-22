@@ -52,3 +52,9 @@ Failed probe attempts: sandbox git fetch DNS failure (succeeded after network pe
 Every phase commit: `node scripts/build-release.mjs && (cd plugins/coming-jobs && npm test) && node scripts/check-public.mjs`. Logs in temporary scratch space; counts, failures, fixes and commit evidence added below as work proceeds.
 
 Phase 1 validation: new tests first failed on non-object schemas, missing host context, Claude credential policy and native turn assumptions. Narrow tests now pass. Full run initially 356/357: one legacy human_only assertion, updated to the specified batch_grant_only contract. Stop behavior test now seeds real pending work; no pending work causes no stop repair.
+
+Phase 1 complete: commit d36677b, 359/359 tests, public check clear.
+
+Phase 2: beta.16 versions unified (package, Codex manifest, Claude manifest, runtime, generated release). Dual installers and separate absolute Claude files implemented. New install tests RED→GREEN; initialize and tools/list run from both installed artifacts. Legacy config tests intentionally updated: installer must leave user config byte-identical.
+
+Ruling: CLI registration/install use an isolated host registry, and Claude local scope inside the installed release. Automatic global enablement would indirectly edit the explicitly forbidden user settings. Manual enablement instructions and --plugin-dir are returned instead; cost is a one-time manual host enablement. No user host settings are changed.

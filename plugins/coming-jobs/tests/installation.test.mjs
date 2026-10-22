@@ -28,17 +28,18 @@ test('fresh install fixes Node, server path and data directory without granting 
     assert(h.hooks.Stop[0].hooks[0].command.includes(r.data_home));
     assert(!existsSync(path.join(home, '.codex/config.toml')));
 });
-test('install backs up and disables only recognized old configuration', t => {
+test('install leaves legacy user configuration untouched and reports manual review', t => {
     const home = fakeHome(t);
     mkdirSync(path.join(home, '.codex'));
     const file = path.join(home, '.codex/config.toml');
     const text = 'model = "existing-model"\n[plugins."jobos-recruiting@personal"]\nenabled = true\n[plugins."music@personal"]\nenabled = true\n[mcp_servers.jobos]\ncommand = "node"\n[mcp_servers.other]\ncommand = "keep"\n';
     writeFileSync(file, text);
     const r = install({ home, skipCli: true }), after = readFileSync(file, 'utf8');
-    assert.equal(r.disabled_legacy_sections, 2);
+    assert.equal(r.disabled_legacy_sections, 0);
+    assert.equal(after,text);
     assert.match(after, /\[plugins\."music@personal"\]\nenabled = true/);
     assert.match(after, /\[mcp_servers.other\]\ncommand = "keep"/);
-    assert.equal(readFileSync(path.join(r.backup_directory, 'config.toml'), 'utf8'), text);
+    assert(!existsSync(path.join(r.backup_directory, 'config.toml')));
 });
 test('existing personal marketplace entries and name survive installation', t => {
     const home = fakeHome(t), dir = path.join(home, '.agents/plugins');
