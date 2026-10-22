@@ -37,7 +37,7 @@ Failed probe attempts: sandbox git fetch DNS failure (succeeded after network pe
 - Phase 5: complete — source transformations, parsing/persistence checks, read-only Claude procedure.
 - Phase 6: complete — transactional batch grants, human queue, guarded submit, outcomes and voided.
 - Phase 7: complete — read-only migration plan, synthetic migrate/revert coverage; real migrate never executed.
-- Phase 8: implementation/review/install/verification complete; branch publication in progress. PR targets main and depends on #2/#3.
+- Phase 8: complete — implementation, independent review/repairs, local validation, installed-host smoke and publication. [PR #4](https://github.com/Dream-of-July/Coming-Jobs/pull/4) targets main and explicitly depends on #2/#3; remote CI is tracked separately below.
 
 ## Interface decisions
 
@@ -121,3 +121,11 @@ Additional isolated CLI-enabled installation succeeded for both hosts with cli_r
 Final read-only migration audit supersedes the initial recovery estimate: 10 stale preparing applications, 10 bookkeeping facts, 1 provably recoverable assessment and 3,337 requiring reassessment; current=0, legacy login conflicts=0, structured fit questions=0. The stricter historical-intent proof accounts for the reduced recovery count. Current private plan code M-0216A6; plan and candidate contents stay outside Git. One attempt to reuse an existing output filename failed with EEXIST by design (exclusive file creation); a fresh temporary filename succeeded. No real migrate was called.
 
 Final repair validation: required build-release → npm test → check-public chain passed on Node v24.14.0/macOS: 430/430 tests (351 inherited + 79 new), zero skipped/failed; 151 public files checked with zero findings; diff whitespace clear. A fresh `install --home <temporary> --host both --skip-cli` passed. Both installed MCP configs initialize, list 23 object-schema tools, call context and execute generated hooks; installed Claude plugin validate passed without warnings. Real host settings remain untouched. Actual Claude Desktop upload/browser/scheduling surfaces and the user's real template/portals remain manual rollout checks, not claimed as verified.
+
+## Publication and rollout handoff
+
+Phase commits: 881f273 (integration/probes), d36677b (host/schema), 213788d (packaging/install), a149c39 (validity/targets), 13993da (claims/rendering), 07c2562 (form integrity), 791e9f9 (batch grants), eb082b4 (migration), 61f5b34 (E2E/docs), 07de189 (independent-review repairs). The same required validation chain passed before every commit.
+
+Pushed feat/hands-off-dual-host to Dream-of-July/Coming-Jobs and created [PR #4](https://github.com/Dream-of-July/Coming-Jobs/pull/4) against main. GitHub confirms the PR is open, unmerged and mergeable; #2 and #3 are still open and explicitly listed as dependencies. No main push, force push or PR merge performed. Both checkouts are clean. GitHub Verify run 39710822008 was queued when published; final remote status is read from actual Actions results, not inferred from local tests.
+
+User-owned rollout: enable the reviewed plugin and hooks in each real host; confirm fresh context version/build; first use prefill_only on a real portal. Confirm account/login, manually handle passwords/registration/QR/CAPTCHA/slider/Claude OTP, batch drag/drop and legal declarations, then inspect actual PDF, parsed field changes, save behavior and complete agreement text. Approve only the desired numbered items with the displayed S-code. Migration remains a private read-only plan until a separate explicit decision; do not run it as part of this handoff. Real template layout, Claude Desktop upload/local view/scheduler and remote received bytes remain unverified here.
