@@ -4503,8 +4503,120 @@
                         "file_upload",
                         "url",
                         "checkbox",
+                        "agreement",
                         "sensitive_user_owned"
                       ]
+                    },
+                    "value_kind": {
+                      "type": "string",
+                      "enum": [
+                        "exact",
+                        "transformed",
+                        "mapped",
+                        "composed",
+                        "agreement"
+                      ]
+                    },
+                    "source": {
+                      "type": "object",
+                      "properties": {
+                        "fact_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "transform": {
+                          "type": "string",
+                          "enum": [
+                            "identity",
+                            "trim",
+                            "date",
+                            "year",
+                            "phone_digits",
+                            "option_map"
+                          ]
+                        },
+                        "mapping": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "from": {
+                                "oneOf": [
+                                  {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 40000
+                                  },
+                                  {
+                                    "type": "boolean"
+                                  },
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 4000
+                                    },
+                                    "maxItems": 100
+                                  }
+                                ]
+                              },
+                              "to": {
+                                "oneOf": [
+                                  {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 40000
+                                  },
+                                  {
+                                    "type": "boolean"
+                                  },
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 4000
+                                    },
+                                    "maxItems": 100
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "from",
+                              "to"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "maxItems": 100
+                        }
+                      },
+                      "required": [
+                        "fact_id"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "text_hash": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "agreement_title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    },
+                    "excerpt": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
                     },
                     "required": {
                       "type": "boolean"
@@ -4863,6 +4975,54 @@
         },
         "portal_saved": {
           "type": "boolean"
+        },
+        "controls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "text_hash": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "excerpt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              }
+            },
+            "required": [
+              "key",
+              "type",
+              "required"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 1000
         },
         "protected_fields": {
           "type": "array",
@@ -5352,6 +5512,62 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 3000
+        },
+        "controls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "text_hash": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "excerpt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              }
+            },
+            "required": [
+              "key",
+              "type",
+              "required"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 1000
+        },
+        "single_submit": {
+          "type": "boolean"
+        },
+        "persistence_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
         }
       },
       "required": [

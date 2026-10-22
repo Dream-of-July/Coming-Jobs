@@ -97,4 +97,4 @@ export function correctObservations(s) {
         { key: 'resume', fields: [{ key: 'cv', upload_complete: true, local_sha256: s.material.asset.sha256, file_name: s.material.asset.name, file_bytes: s.material.asset.bytes, file_count: 1 }] }
     ];
 }
-export function checkpointArgs(s, p, groups = correctObservations(s)) { return { application_id: s.app.id, plan_hash: p.content_hash, session_id: 'session', portal_url: 'https://jobs.example.com/application', page_fingerprint: 'synthetic-page-v1', observed_at: now(), groups }; }
+export function checkpointArgs(s, p, groups = correctObservations(s)) { return { application_id: s.app.id, plan_hash: p.content_hash, session_id: 'session', portal_url: 'https://jobs.example.com/application', page_fingerprint: 'synthetic-page-v1', observed_at: now(), portal_saved:true, groups }; }

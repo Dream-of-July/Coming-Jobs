@@ -1,3 +1,4 @@
+import {sourceValue} from './field-source.mjs';
 import { itinerary } from './execution.mjs';
 import { fieldDigest, consentScope, coveredFields, authorizationState } from './authorization.mjs';
 import { assert, consent, noSecrets, hash, id, now, iso, originOf, portalLocation, equal } from './core.mjs';
@@ -19,7 +20,7 @@ function assertPlanCurrent(store, app, plan) {
         for (const [id, digest] of f.evidence_versions ?? []) assert(current.has(id) && hash(current.get(id).value) === digest, 'fact_changed', '已确认资料发生变化，只更新受影响的字段。');
     }
 }
-export const FIELD_TYPES = ['free_text', 'portal_select', 'date_picker', 'file_upload', 'url', 'checkbox', 'sensitive_user_owned'];
+export const FIELD_TYPES = ['free_text', 'portal_select', 'date_picker', 'file_upload', 'url', 'checkbox', 'agreement', 'sensitive_user_owned'];
 export function planApplication(store, a) {
     const app = store.get('application', a.application_id);
     assert(app.stage === 'preparing', 'application_locked', '已提交或结果不明的申请只读，不再次填写。');
@@ -31,14 +32,17 @@ export function planApplication(store, a) {
     const fs = new Map(facts(store, 'form', `company:${app.company}`).map(f => [f.id, f]));
     const groups = a.groups.map(g => ({ key: g.key, label: g.label, required: g.required, fields: g.fields.map(f => {
             assert(FIELD_TYPES.includes(f.type), 'invalid_field_type', '不支持的门户字段类型。');
-            const humanLabel = /验证码|身份证|护照|背调|隐私|法律声明|承诺书|password|passport|privacy|legal declaration/i.test(f.label);
+            const humanLabel = /验证码|身份证|护照|背调|法律声明|承诺书|诚信|password|passport|declaration/i.test(f.label) || /隐私|privacy/i.test(f.label) && f.type!=='agreement';
             assert(!humanLabel || f.type === 'sensitive_user_owned', 'manual_field_required', '该字段必须由用户处理，不能当普通字段自动填写。');
             if (f.type === 'sensitive_user_owned')
                 return { key: f.key, label: f.label, type: f.type, required: f.required, manual: true };
             assert(f.value !== undefined, 'missing_target', '普通字段必须有明确目标值，不能临场编造。');
             noSecrets(f.value, f.key);
             assert(!f.max_length || typeof f.value !== 'string' || [...f.value].length <= f.max_length, 'field_length_exceeded', '门户长度不足；记录限制并审核压缩差异，禁止静默截断。');
-            const evidence = f.evidence_ids ?? [];
+            const evidence = [...(f.evidence_ids ?? [])];
+            if(f.source){const fact=fs.get(f.source.fact_id);assert(fact,'unconfirmed_field','source 必须引用当前可用事实。');assert(equal(sourceValue(fact,f.source),f.value),'field_value_mismatch','填写值不等于事实按指定规则转换后的值。');if(!evidence.includes(fact.id))evidence.push(fact.id);}
+            f={...f,value_kind:f.source?(f.source.transform==='option_map'?'mapped':f.source.transform&&f.source.transform!=='identity'?'transformed':'exact'):'composed'};
+            if(f.type==='agreement'){assert(/^[a-f0-9]{64}$/.test(f.text_hash??'')&&f.agreement_title&&f.excerpt&&f.value===true,'agreement_hash_required','协议必须列明标题、文本哈希、摘录与同意目标。');return {...f,value_kind:'agreement',evidence_ids:[]};}
             assert(evidence.every(e => fs.has(e)), 'unconfirmed_field', '普通字段只能引用已确认、允许填表且范围适用的事实。');
             if (f.type === 'file_upload') {
                 const m = store.get('material', String(f.value));
@@ -196,7 +200,7 @@ export function review(store, a) {
     const checks = plan.groups.map(g => {
         const d = drafts.find(d => d.group_key === g.key);
         const required = g.required || plan.required_groups.includes(g.key) || g.fields.some(f => f.required && !f.manual);
-        const pass = !!d?.passed && d.portal_saved !== false && Date.now() - Date.parse(d.observed_at) < 15 * 60000;
+        const pass = !!d?.passed && (d.portal_saved === true || a.single_submit===true && !!a.persistence_ref && d.portal_saved !== false) && Date.now() - Date.parse(d.observed_at) < 15 * 60000;
         return { key: g.key, label: g.label, required, passed: pass, manual: g.fields.filter(f => f.manual).map(f => f.label) };
     });
     const inventory = (plan.checklist ?? []).map(item => ({ ...item, passed: item.state !== 'pending' && !!item.observation_ref && (!item.group_key || checks.some(g => g.key === item.group_key && g.passed)) }));
@@ -205,12 +209,18 @@ export function review(store, a) {
         inventory.push({ key: 'portfolio', label: '作品附件或仅链接入口核验', required: true, passed: false });
     const batches = store.all('execution_batch').filter(b => b.application_id === app.id && b.plan_id === plan.id);
     if (batches.length) for (const spec of itinerary(plan)) if (!batches.some(b => b.number === spec.number && b.state === 'complete')) inventory.push({key: `batch:${spec.number}`, label: '批次回读或附件阶段未完成', required: true, passed: false});
+    const controls=a.controls??app.portal_inventory??null;
+    if(controls){
+        noSecrets(controls);const planned=new Set(plan.groups.flatMap(g=>g.fields).map(f=>f.key));
+        for(const c of controls)if(c.required&&!planned.has(c.key))inventory.push({key:c.key,label:c.label??c.key,required:true,passed:false,reason:'unplanned_required_control'});
+        for(const c of controls.filter(c=>c.type==='agreement')){const field=plan.groups.flatMap(g=>g.fields).find(f=>f.key===c.key&&f.type==='agreement');if(!field||field.text_hash!==c.text_hash)inventory.push({key:c.key,label:c.label??c.key,required:true,passed:false,reason:'agreement_changed'});}
+    } else if(app.apply_batch_id)inventory.push({key:'controls',required:true,passed:false,reason:'inventory_required'});
     const blockers = [...checks, ...inventory].filter(g => g.required && !g.passed);
     const cv = store.get('material', app.resume_id);
     store.assetPath(cv.asset);
     assertMaterialCurrent(store, cv);
     const snapshot = { job: app.job_snapshot, resume: { ...cv }, answers: drafts.map(d => ({ group: d.group_key, fields: d.observed })), plan_hash: plan.content_hash };
-    const result = { ready: blockers.length === 0, checks, checklist: inventory, completeness: plan.checklist?.length ? 'recorded_inventory' : 'legacy_inventory_unverified', portal_persistence: drafts.every(d => d.portal_saved === true) && drafts.length ? 'saved_observed' : 'not_verified', blockers, snapshot_hash: hash(snapshot), snapshot, reviewed_at: now(),
+    const result = { ready: blockers.length === 0, checks, checklist: inventory, completeness: plan.checklist?.length ? 'recorded_inventory' : 'legacy_inventory_unverified', control_inventory_verified:!!controls,controls:controls??[],persistence_ref:a.persistence_ref??null,single_submit:a.single_submit??false,portal_persistence: drafts.every(d => d.portal_saved === true) && drafts.length ? 'saved_observed' : 'not_verified', blockers, snapshot_hash: hash(snapshot), snapshot, reviewed_at: now(),
         final_submit: 'human_only', manual_notice: '用户亲自核对、处理声明并点击最终提交。Agent 不勾选敏感声明，不代做测评。' };
     store.put('application', app.id, { ...app, review: result });
     return { ...result, snapshot: undefined };

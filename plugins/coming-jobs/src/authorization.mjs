@@ -4,7 +4,7 @@ import { hash } from './core.mjs';
 // Locators and display filenames are not content; recipient, semantics and bytes are.
 export function fieldDigest(field) {
     const digest = hash([field.key, field.label, field.type, field.material ? { sha256: field.material.sha256, bytes: field.material.bytes } : field.value,
-        field.option_id ?? null, field.evidence_versions ?? []]);
+        field.option_id ?? null, field.evidence_versions ?? [], ...(field.type==='agreement'?[field.text_hash,field.agreement_title,field.excerpt]:[])]);
     return field.attachment_mode || field.restore_keys ? hash([digest, field.attachment_mode, field.restore_keys, field.restore_confirmed, field.restore_ref]) : digest;
 }
 export function consentScope(app, origin) {
