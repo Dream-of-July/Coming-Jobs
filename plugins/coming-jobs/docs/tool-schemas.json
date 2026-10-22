@@ -9,7 +9,18 @@
         "operation": {
           "type": "string",
           "enum": [
-            "targets"
+            "targets",
+            "start",
+            "sheet",
+            "approve",
+            "human_queue",
+            "human_done",
+            "human_verify",
+            "status",
+            "revoke",
+            "void",
+            "clear_submit",
+            "abort_submit"
           ]
         },
         "job_ids": {
@@ -27,13 +38,35 @@
           "maxLength": 100
         },
         "numbers": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 50
-          },
-          "maxItems": 50
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 50
+              },
+              "maxItems": 50
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 50
+              },
+              "maxItems": 5
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              },
+              "maxItems": 5
+            }
+          ]
         },
         "confirmed": {
           "type": "boolean"
@@ -42,6 +75,153 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 1000
+        },
+        "application_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "maxItems": 5
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "batch_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "application_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "sheet_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "sheet_issued_at": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "reply": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "application_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "login",
+                  "otp",
+                  "captcha",
+                  "qr",
+                  "password",
+                  "registration",
+                  "upload",
+                  "agreement",
+                  "declaration",
+                  "host_access",
+                  "unknown"
+                ]
+              },
+              "field_key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "origin": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "prompt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1500
+              }
+            },
+            "required": [
+              "kind",
+              "prompt"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 50
+        },
+        "human_step_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "maxItems": 50
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "human_step_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "observed_complete": {
+          "type": "boolean"
+        },
+        "verification_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "background": {
+          "type": "boolean"
+        },
+        "caller": {
+          "type": "string",
+          "enum": [
+            "foreground",
+            "scheduled"
+          ]
+        },
+        "portal_url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        },
+        "job_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "draft_not_submitted": {
+          "type": "boolean"
+        },
+        "observation_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "observed_at": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
         }
       },
       "required": [
@@ -3161,6 +3341,14 @@
         "preferences": {
           "type": "object",
           "properties": {
+            "batch_submit": {
+              "type": "string",
+              "enum": [
+                "on",
+                "prefill_only",
+                "off"
+              ]
+            },
             "template": {
               "type": "string",
               "enum": [
@@ -5594,6 +5782,8 @@
           "type": "string",
           "enum": [
             "open",
+            "host_access",
+            "portal",
             "resolve"
           ]
         },
@@ -5622,6 +5812,45 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 300
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "available",
+            "permission_denied",
+            "not_configured"
+          ]
+        },
+        "result_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "origin": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "login_method": {
+          "type": "string",
+          "enum": [
+            "existing_session",
+            "email",
+            "sms",
+            "qr",
+            "password",
+            "user"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "observation_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
         },
         "completed": {
           "type": "boolean"

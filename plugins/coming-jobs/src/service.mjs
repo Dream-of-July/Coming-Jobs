@@ -28,10 +28,11 @@ export const handlers = {
         if (a.scope === 'applications')
             return { applications: s.all('application'), queue: queue(s) };
         const active = s.get('settings', 'focus', false);
-        const activeId = a.application_id ?? (active?.kind === 'application' ? active.application_id : null);
+        let activeId = a.application_id ?? (active?.kind === 'application' ? active.application_id : null);
+        if (activeId && s.get('application',activeId,false)?.stage==='voided') activeId=null;
         return { host: currentHost(), task: active, current_application: activeId && s.get('application', activeId, false) ? applicationContext(s, activeId) : null, coverage: coverage(s), facts: facts(s, a.scope === 'profile' ? null : 'matching'), fit_context: candidateFitContext(s), proposals: s.all('proposal').filter(p => p.state === 'proposed'),
             question: nextQuestion(s), authentication: authenticationContext(s), applications: s.all('application').map(({ id, company, title, stage, submission_evidence }) => ({ id, company, title, stage, submission_evidence })),
-            preferences: s.get('settings', 'preferences', false), schedule: s.get('settings', 'schedule', false), daily: dailySummary(s), templates: TEMPLATES,
+            preferences: {batch_submit:'on',...s.get('settings', 'preferences', false)}, schedule: s.get('settings', 'schedule', false), daily: dailySummary(s), templates: TEMPLATES,
             capabilities: { lightweight_tasks: 'host_subagents_required', preferred_worker: currentHost().worker, worker_reasoning: 'medium', max_workers: 3, storage: 'available', form_planning: 'available', web_search: 'host_required', browser: 'host_required', figma: 'host_connection_required',
                 chatgpt_memory: 'host_tool_or_authorized_export', transcription: 'host_required', email_sms: 'authorized_host_connector_or_manual_read', scheduler: 'host_required', final_submit: 'batch_grant_only' },
             recent_handoff: a.session_id ? s.get('turn', a.session_id, false) : null };
@@ -46,7 +47,8 @@ export function call(store, name, args = {}) {
         assert(def, 'unknown_tool', '不是 Coming Jobs 的工具。', '仅使用 jobos1_ 前缀及 jobos_next 服务器，不调用旧版同名工具。');
         validate(INTERNAL_SCHEMAS.get(name), args);
         const action = handlers[name.slice('jobos1_'.length)];
-        const outsideTransaction = def.annotations.readOnlyHint || (name === 'jobos1_material' && args.operation === 'render');
+        const readBatch = name==='jobos1_apply_batch'&&['sheet','status'].includes(args.operation);
+        const outsideTransaction = readBatch || def.annotations.readOnlyHint || (name === 'jobos1_material' && args.operation === 'render');
         const run = () => {
             const data = action(store, args);
             const short = name.slice(7);
@@ -55,7 +57,7 @@ export function call(store, name, args = {}) {
                 focus = 'discover';
             if (short === 'shortlist')
                 focus = args.operation === 'choose' ? 'application' : 'shortlist';
-            if (['material', 'plan', 'authorize', 'checkpoint', 'recover', 'review', 'handoff', 'outcome'].includes(short))
+            if (['material', 'plan', 'authorize', 'checkpoint', 'recover', 'review', 'handoff', 'outcome','apply_batch'].includes(short))
                 focus = 'application';
             if (short === 'followup')
                 focus = 'tracking';
@@ -63,7 +65,7 @@ export function call(store, name, args = {}) {
                 focus = 'interview';
             if (short === 'profile' && args.operation === 'recommend')
                 focus = 'discover';
-            if (focus && !def.annotations.readOnlyHint && !args.background)
+            if (focus && !readBatch && !def.annotations.readOnlyHint && !args.background)
                 store.put('settings', 'focus', { kind: focus, operation: args.operation ?? short, application_id: args.application_id ?? store.get('settings', 'active', false)?.application_id ?? null });
             return data;
         };

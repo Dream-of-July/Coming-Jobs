@@ -2,7 +2,7 @@ import { assert, hash, now, iso, noSecrets, publicUrl } from './core.mjs';
 const normal = s => String(s).normalize('NFKC').trim().toLowerCase();
 export const companyMatches = (company, label) => [company.name, ...company.aliases].some(n => normal(n) === normal(label));
 export const scopeKey = s => hash([s.track, s.campaign]);
-export const submitted = a => !!a.submission_evidence && !['unverified', 'none'].includes(a.submission_evidence) || !['preparing', 'unknown'].includes(a.stage);
+export const submitted = a => a.stage !== 'voided' && (!!a.submission_evidence && !['unverified', 'none'].includes(a.submission_evidence) || !['preparing', 'unknown'].includes(a.stage));
 export function registerCompany(store, a) {
     noSecrets(a);
     const old = a.company_id ? store.get('company', a.company_id) : store.all('company').find(c => companyMatches(c, a.name));

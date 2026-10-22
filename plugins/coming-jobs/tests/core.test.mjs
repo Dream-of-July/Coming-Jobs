@@ -156,7 +156,7 @@ test('correct full readback passes and leaves final submit human-only', t => {
     e.run('checkpoint', checkpointArgs(s, p));
     const r = e.run('review', { application_id: s.app.id, portal_url: 'https://jobs.example.com/application' });
     assert.equal(r.ready, true);
-    assert.equal(r.final_submit, 'human_only');
+    assert.equal(r.final_submit, 'batch_grant_only');
     assert.equal(guidance(e.store).next.action, 'human_submit');
 });
 test('restoring draft must not overwrite a third user value', t => {

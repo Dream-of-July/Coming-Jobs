@@ -1,6 +1,6 @@
 import { assert, consent, noSecrets, hash, id, now, iso, equal } from './core.mjs';
 import { recordOutcome } from './applications.mjs';
-const submitted = a => a.stage !== 'preparing' || a.submission_evidence;
+const submitted = a => a.stage !== 'voided' && (a.stage !== 'preparing' || a.submission_evidence);
 const scrub = value => String(value ?? '').replace(/https?:\/\/[^\s<>]+/gi, '[专属链接已省略]').replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, '[邮箱已省略]').replace(/(?:验证码|verification code|otp)\s*[:：]?\s*\S+/gi, '[验证码已省略]');
 export function queue(store) {
     return store.all('application').filter(a => a.mode !== 'demo' && submitted(a)).map(a => ({ application_id: a.id, company: a.company, title: a.title, stage: a.stage,

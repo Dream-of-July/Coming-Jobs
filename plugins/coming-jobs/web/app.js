@@ -11,7 +11,7 @@ catch { }
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const factLabel = k => ({ 'intent.tracks': '招聘类型', 'intent.direction': '目标方向', 'intent.locations': '地点范围', 'education.summary': '教育与毕业安排', 'experience.summary': '工作与实习经历', 'project.anchor': '代表项目', 'availability': '到岗安排', 'languages': '工作语言', 'name': '姓名', 'school': '学校', 'project.description': '项目内容' }[k] ?? k);
-const stageLabel = k => ({ preparing: '准备中', unknown: '结果待核验', submitted: '已投递', screening: '简历筛选', assessment: '笔试/测评', interview: '面试', offer: 'Offer', rejected: '未通过', withdrawn: '已撤回' }[k] ?? k);
+const stageLabel = k => ({ preparing: '准备中', unknown: '结果待核验', submitted: '已投递', screening: '简历筛选', assessment: '笔试/测评', interview: '面试', offer: 'Offer', rejected: '未通过', withdrawn: '已撤回', voided:'已作废' }[k] ?? k);
 let data, tab = 'overview';
 const titles = { overview: '今日工作台', profile: '我的资料', jobs: '岗位推荐', applications: '投递进度', interviews: '面试与复盘', settings: '偏好与跟进' };
 function notice(message) { $('#notice').hidden = false; $('#notice').textContent = message; }

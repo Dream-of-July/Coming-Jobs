@@ -31,7 +31,7 @@ const CONTROL=O({key:S(150),label:S(300),type:S(100),required:B,text_hash:S(64),
 const GROUP = O({ key: S(100), label: S(200), required: B, fields: A(FIELD, 100) });
 const CONTENT = O({ name: S(150), headline: S(300), contact: S(1000), links: A(O({ label: S(100), url: S(3000) }), 10),
     sections: A(O({ title: S(150), items: A(O({ text: S(10000), evidence_ids: A(S(100), 50) }), 30) }), 12) }, ['name', 'headline', 'sections']);
-const PREF = O({ template: E('classic', 'projects', 'clean'), figma: S(3000), figma_node: S(100), timezone: S(100), company_order: A(S(100), 50), referral_source: S(3000) }, []);
+const PREF = O({ batch_submit:E('on','prefill_only','off'), template: E('classic', 'projects', 'clean'), figma: S(3000), figma_node: S(100), timezone: S(100), company_order: A(S(100), 50), referral_source: S(3000) }, []);
 const definitions = [];
 export const INTERNAL_SCHEMAS = new Map();
 function tool(name, title, schema, read = false) {
@@ -88,6 +88,8 @@ tool('recover', '比较原值、目标值和当前值，恢复草稿但不覆盖
 tool('review', '基于保存的真实回读生成最终审核包，最终由用户提交', O({ application_id: S(100), portal_url: S(3000), controls:A(CONTROL,1000),single_submit:B,persistence_ref:S(1000) },['application_id','portal_url']));
 tool('handoff', '缺登录权限或验证码读取能力、声明及真实未知项的可恢复人工接管', { oneOf: [
         OP('open', { application_id: S(100), kind: E('login', 'captcha', 'sensitive', 'conflict', 'unknown', 'host_permission'), prompt: S(1500), reply: S(300) }, ['application_id', 'kind', 'prompt']),
+        OP('host_access',{state:E('available','permission_denied','not_configured'),result_ref:S(1000)}),
+        OP('portal',{origin:S(500),login_method:E('existing_session','email','sms','qr','password','user'),observed_at:S(80),observation_ref:S(1000)}),
         OP('resolve', { application_id: S(100), completed: B, user_ref: S(1000) })
     ] });
 tool('outcome', '记录用户提交及官方页面/邮件/短信观察，不要求 checkpoint；不冒充 provider 验证', O({ application_id: S(100), stage: E('unknown', 'submitted', 'screening', 'assessment', 'interview', 'offer', 'rejected', 'withdrawn'),

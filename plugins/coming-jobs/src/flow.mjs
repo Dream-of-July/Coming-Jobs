@@ -1,9 +1,11 @@
+import {batchGuidance} from './apply-batch.mjs';
 import { authorizationState } from './authorization.mjs';
 import { coverage, nextQuestion, facts } from './profile.mjs';
 import { now, hash } from './core.mjs';
 import { authenticationContext } from './authentication.mjs';
 const next = (owner, action, prompt, reply = null) => ({ owner, action, prompt, reply });
 export function guidance(store, applicationId, { background = false } = {}) {
+    const batchFlow=batchGuidance(store,background);if(batchFlow)return batchFlow;
     const focus = store.get('settings', 'focus', false);
     if (!applicationId && focus?.kind === 'shortlist') {
         const batch = store.all('batch').at(-1);
@@ -29,9 +31,10 @@ export function guidance(store, applicationId, { background = false } = {}) {
             next: next('user', 'choose_direction', '可继续投递其他公司、查看全部进度，或自行安排测评。测评只提醒截止时间，不阻塞其他投递。', '继续找岗位／查看全部进度／更新测评进度'),
             reminders: notice?.normalized_stage === 'assessment' ? [{ kind: 'assessment', deadline: notice.deadline ?? null, owner: 'user' }] : [], can_auto_continue: false };
     }
-    const apps = store.all('application');
-    const activeId = applicationId ?? store.get('settings', 'active', false)?.application_id;
-    const app = activeId ? store.get('application', activeId, false) : apps.find(a => !['submitted', 'assessment', 'screening', 'interview', 'offer', 'rejected', 'withdrawn'].includes(a.stage));
+    const apps = store.all('application').filter(a=>a.stage!=='voided');
+    let activeId = applicationId ?? store.get('settings', 'active', false)?.application_id;
+    if(activeId&&store.get('application',activeId,false)?.stage==='voided')activeId=null;
+    const app = activeId ? store.get('application', activeId, false) : apps.find(a => !['submitted', 'assessment', 'screening', 'interview', 'offer', 'rejected', 'withdrawn','voided'].includes(a.stage));
     if (app) {
         if (app.handoff?.state === 'open' && app.handoff.kind === 'login' && !background && authenticationContext(store).preferred_channels.length)
             return { stage: '继续招聘登录', application_id: app.id,
@@ -39,7 +42,7 @@ export function guidance(store, applicationId, { background = false } = {}) {
         if (app.handoff?.state === 'open')
             return { stage: '等待你的操作', application_id: app.id,
                 next: next('user', app.handoff.kind, app.handoff.prompt, app.handoff.reply ?? '已完成，继续'), can_auto_continue: false };
-        if (['submitted', 'assessment', 'screening', 'interview', 'offer', 'rejected', 'withdrawn'].includes(app.stage)) {
+        if (['submitted', 'assessment', 'screening', 'interview', 'offer', 'rejected', 'withdrawn','voided'].includes(app.stage)) {
             const waiting = apps.find(a => a.id !== app.id && a.stage === 'preparing');
             if (waiting)
                 return guidance(store, waiting.id, { background });

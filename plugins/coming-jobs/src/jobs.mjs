@@ -201,7 +201,7 @@ export function createApplication(store, jobId, userRef, expectedHash) {
         assert(job.content_hash === expectedHash, 'jd_changed', '选中后 JD 已变化，先展示差异。');
     assert(jobOpportunity(store,job).state !== 'exhausted', 'opportunity_exhausted', '该公司本批次名额已用完，只作参考并继续跟进。');
     assert(jobOpportunity(store,job).state !== 'closed','campaign_closed','本招聘项目已经截止，请核验当前开放范围。');
-    const existing = store.all('application').find(a => a.job_id === jobId);
+    const existing = store.all('application').find(a => a.job_id === jobId && a.stage !== 'voided');
     if (existing)
         return existing;
     assert(job.state === 'open' && (!job.deadline || Date.parse(job.deadline) > Date.now()), 'job_not_open', '这个岗位已经关闭或超过截止日。', '只读核验当前职位，不创建新的投递。');

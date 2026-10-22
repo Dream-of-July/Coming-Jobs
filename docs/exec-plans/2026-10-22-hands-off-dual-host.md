@@ -72,3 +72,11 @@ Phase 4 verification: 373/373 tests, public check clear. Synthetic PDF visually 
 Phase 4 complete: commit 13993da, 373/373 tests.
 
 Phase 5 narrow validation: 16/16 pass. Source transformations computed by plugin, agreement content included in field digest, upload completion/recovery requires control inventory and protected-field readback. Parsed changes preserved, affected drafts require fresh verification. Review requires portal save evidence or single-submit persistence reference. Claude script does not read hidden inputs, passwords or OTP values, performs no writes, and native action lists stay within eight actions. Synthetic helper now explicitly supplies save evidence where the scenario assumed a saved draft.
+
+Phase 5 complete: commit 07c2562, 377/377 tests. Full run initially found four round-trip schemas rejecting the new derived value_kind and one legacy unsaved fixture; derived metadata is now accepted but recomputed, and the unsaved scenario explicitly omits save evidence and expects ready=false.
+
+Phase 6 implemented: pure sheet generation (no audit writes), two-hour content-coded approval, atomic grants/material approvals/prefill authorizations, session-bound 12-hour-or-deadline grants, deduplicated human queue, current-control checks, guarded click-once attempts, explicit draft abort, SHA-bound outcomes, batch-aware flow and voided exclusions. Claude upload copies are grouped by batch and numbered company directory while preserving approved filenames and bytes.
+
+Ruling: an approval sheet is pure until approved; issued_at travels with the sheet and is included in its server-recomputed code. The successful approval transaction persists approval_sheet. This satisfies read-only sheet generation and a full two-hour review window without refreshing the code on every read.
+
+Phase 6 validation: 389/389 tests, public check clear. Tests verify exact user batch code and selected numbers, atomic rollback on writer conflict, read-only sheets, expiration, revoked/declined consent, session/background/JD/review/mode guards, one click, actual résumé SHA, deduplicated human checks and voided fallback exclusion. All passed before commit.

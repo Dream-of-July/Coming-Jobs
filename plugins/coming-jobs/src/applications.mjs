@@ -1,3 +1,4 @@
+import {currentHost} from './host.mjs';
 import {sourceValue} from './field-source.mjs';
 import { itinerary } from './execution.mjs';
 import { fieldDigest, consentScope, coveredFields, authorizationState } from './authorization.mjs';
@@ -221,11 +222,13 @@ export function review(store, a) {
     assertMaterialCurrent(store, cv);
     const snapshot = { job: app.job_snapshot, resume: { ...cv }, answers: drafts.map(d => ({ group: d.group_key, fields: d.observed })), plan_hash: plan.content_hash };
     const result = { ready: blockers.length === 0, checks, checklist: inventory, completeness: plan.checklist?.length ? 'recorded_inventory' : 'legacy_inventory_unverified', control_inventory_verified:!!controls,controls:controls??[],persistence_ref:a.persistence_ref??null,single_submit:a.single_submit??false,portal_persistence: drafts.every(d => d.portal_saved === true) && drafts.length ? 'saved_observed' : 'not_verified', blockers, snapshot_hash: hash(snapshot), snapshot, reviewed_at: now(),
-        final_submit: 'human_only', manual_notice: '用户亲自核对、处理声明并点击最终提交。Agent 不勾选敏感声明，不代做测评。' };
+        final_submit: 'batch_grant_only', manual_notice: '用户亲自处理声明；逐批审批后，仅 clear_submit 放行的项目可点击一次。Agent 不代做测评。' };
     store.put('application', app.id, { ...app, review: result });
     return { ...result, snapshot: undefined };
 }
 export function handoff(store, a) {
+    if(a.operation==='host_access'){noSecrets(a.result_ref);return store.put('settings','host_access',{state:a.state,host:currentHost().id,result_ref:a.result_ref,checked_at:now()});}
+    if(a.operation==='portal'){const u=new URL(a.origin);assert(u.protocol==='https:'&&u.origin===a.origin,'invalid_origin','仅保存纯 HTTPS 来源。');assert(Math.abs(Date.now()-Date.parse(iso(a.observed_at)))<300000,'stale_observation','会话核验需要近期实际观察。');noSecrets(a.observation_ref);return store.put('portal_session',hash([currentHost().id,u.origin]),{host:currentHost().id,origin:u.origin,login_method:a.login_method,last_success_at:iso(a.observed_at),observation_ref:a.observation_ref});}
     const app = store.get('application', a.application_id);
     if (a.operation === 'resolve') {
         consent(a.completed, a.user_ref);
@@ -235,7 +238,7 @@ export function handoff(store, a) {
     const task = { state: 'open', kind: a.kind, prompt: a.prompt, reply: a.reply ?? '已完成，继续', created_at: now() };
     return store.put('application', app.id, { ...app, handoff: task });
 }
-const STAGES = ['preparing', 'unknown', 'submitted', 'screening', 'assessment', 'interview', 'offer', 'rejected', 'withdrawn'];
+const STAGES = ['voided','preparing', 'unknown', 'submitted', 'screening', 'assessment', 'interview', 'offer', 'rejected', 'withdrawn'];
 export function recordOutcome(store, a) {
     let app;
     if (a.application_id) app = store.get('application', a.application_id);
@@ -248,6 +251,9 @@ export function recordOutcome(store, a) {
         app = matches[0] ?? { id: 'observed_' + hash([a.company, a.job_id]).slice(0,24), company:a.company, title:a.title, mode:'live', stage:'unknown', job_id:null,
             job_snapshot:{company:a.company,title:a.title,external_id:a.job_id,content_hash:null,jd:''}, observations:[], submission_evidence:'unverified', created_at:now() };
     }
+    assert(app.stage!=='voided','application_voided','已作废的申请不能补写为已投递。');
+    const attempt=app.submit_attempt_id?store.get('submit_attempt',app.submit_attempt_id,false):null;
+    if(!a.actual_resume_sha256&&attempt)a={...a,actual_resume_sha256:attempt.actual_resume_sha256};
     if (a.user_confirmed)
         consent(true, a.user_ref);
     assert(STAGES.includes(a.stage) && a.stage !== 'preparing', 'invalid_stage', '无效招聘阶段。');
@@ -267,16 +273,18 @@ export function recordOutcome(store, a) {
     const canUpdate = Date.parse(at) >= previous && !conflict;
     let submitted = app.submitted_material ?? null;
     if (!submitted && a.actual_resume_sha256) {
-        const m = store.all('material').find(m => m.asset?.sha256 === a.actual_resume_sha256);
+        const m = attempt?.resume?.asset?.sha256===a.actual_resume_sha256?attempt.resume:store.all('material').find(m => m.asset?.sha256 === a.actual_resume_sha256);
         assert(m && m.approved, 'unknown_material', '找不到已审核的实际提交文件。');
         assert(a.user_confirmed || proof, 'material_evidence', '实际提交版本需要用户确认或页面观察。');
-        submitted = { resume: { ...m }, job: { ...app.job_snapshot }, answers: app.review?.snapshot?.answers ?? [], observed_at: at, evidence_mode: a.source };
+        submitted = { resume: { ...m }, job: { ...app.job_snapshot }, actual_resume_sha256:a.actual_resume_sha256, answers: attempt?.review_snapshot?.answers??app.review?.snapshot?.answers ?? [], observed_at: at, evidence_mode: a.source };
     }
     const updated = store.put('application', app.id, { ...app,
         stage: canUpdate ? a.stage : app.stage, ever_stages: canUpdate ? [...new Set([...(app.ever_stages ?? []), a.stage])] : app.ever_stages ?? [], last_observation_at: canUpdate ? at : app.last_observation_at,
         submission_evidence: proof && a.stage !== 'unknown' ? 'portal_observed' : (app.submission_evidence === 'portal_observed' ? 'portal_observed' : a.user_confirmed ? 'user_reported' : app.submission_evidence ?? 'unverified'),
-        provider_verified: false, submitted_material: submitted, dirty: canUpdate ? false : app.dirty, handoff: null,
+        provider_verified: false, actual_resume_sha256:submitted?.resume?.asset?.sha256??app.actual_resume_sha256??null, submitted_material: submitted, dirty: canUpdate ? false : app.dirty, handoff: null,
         observations: [...new Set([...(app.observations ?? []), eventId])], attention: conflict ? 'evidence_conflict' : app.attention ?? null });
+    if(attempt)store.put('submit_attempt',attempt.id,{...attempt,state:a.stage==='unknown'?'unknown':'recorded',outcome_ref:a.observation_ref??a.user_ref??null});
+    if(app.apply_batch_id){const batch=store.get('apply_batch',app.apply_batch_id,false),grant=batch?.grant_id?store.get('apply_grant',batch.grant_id,false):null;if(grant?.items.every(i=>!['preparing','unknown'].includes(store.get('application',i.application_id).stage))){store.put('apply_batch',batch.id,{...batch,state:'complete',completed_at:now()});store.put('settings','active_apply_batch',{batch_id:null});}}
     return { application: updated, conflict, verified_by_provider: false, next: '已记录外部观察，不要求内部 checkpoint；后续只读跟踪，不再次投递。' };
 }
 export function applicationContext(store, id) {
