@@ -1,5 +1,16 @@
 # Changelog / 版本记录
 
+## 1.0.0-beta.14 — Application workflow reliability / 投递流程改进
+
+- Added whole-form matching against confirmed company-scoped facts, including GitHub and other known optional links; observed field coverage participates in preparation and review.
+- Corrected semantic-locator readback, reactive fields clearing earlier values, targeted recovery and preservation of intervening user edits; ordinary batches consolidate final readback.
+- Added a host-only, ephemeral one-time-code helper with immediate reads, bounded polling, request binding and sanitized results. Existing applicable authorization is reused; human-verification challenges and final submission stay user-owned.
+- Added company application strategies and atomic multiple-choice preparation, distinguishing submitted capacity from local draft reservations and retaining selected preparation order.
+- Added resume context, exact-byte approved reuse, explicit source-to-rewrite mappings and editorial review. Numeric checks match full tokens; quality reports expose omissions and changed responsibility wording without claiming semantic proof.
+- Preserved existing single-choice calls and candidate workspaces. The new source uses a separate immutable installation version; no live Desktop installation is changed by these source edits.
+- 中文：补齐已有资料、减少无谓交互、按公司名额准备多个合适志愿；优先复用已审核简历，改写逐条对照证据。
+- Details / 详情：[Workflow reliability / 流程改进](docs/WORKFLOW-RELIABILITY.md).
+
 ## 1.0.0-beta.13 — Independent fit assessment / 独立岗位评估
 
 - Added evidence-graded, duty-based assessments and shared qualification gates for daily recommendations and resumable comparisons of up to 20 companies.

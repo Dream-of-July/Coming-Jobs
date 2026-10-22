@@ -2,11 +2,24 @@
 
 首次采用新流程：根据用户已确认 PDF 明确登记 material(baseline)，提供实际文件 SHA、真实文本提取引用与逐条 inventory（每段教育、工作、项目、成果、奖项、作品链接）。不存在的类别不编造；不要用修改时间选文件。登记既有审核不要求重复问用户。内容缺失先补齐、展示差异、取得适用审核。岗位版关联 lineage；文本证据是宿主提取结果，不代表插件独立解析了 PDF，必须核对实际文件。视觉验收独立保留。
 
-表单对应正文使用 content_key 和 material_id 引用同一基线。默认原文；公司扩写或字段压缩用 material(variation)，记录公司、原文、差异、事实、长度限制和已确认来源，计划中引用 variation_id。不要把这类变化写成全局答案。照片用 kind=photo，计划给出 max_bytes、allowed_mime_types，定位唯一。
+表单对应正文使用 content_key 和 material_id 引用同一基线。默认使用本次简历已审核的文字：存在已审核 baseline_mappings 时使用岗位版新文字，否则使用基线原文。公司扩写或字段压缩用 material(variation)，记录公司、原文、差异、事实、长度限制和已确认来源，计划中引用 variation_id。不要把这类变化写成全局答案。复用审核文件使用 material(reuse)，只复用内容审核，不复制外部传输授权。照片用 kind=photo，计划给出 max_bytes、allowed_mime_types，定位唯一。
 
-执行先读当前宿主文档。plan.batches 给出顺序与最多八项的普通字段批次。上传、学校、日期单独执行。每批先只读实际原值；附件批次还需 protected_fields 保存所有可能受解析影响的普通字段，已有值时提供经用户明确确认的 restore_keys/restore_ref 或经当前页面核验的 attachment_mode=attachment_only。，然后 checkpoint(phase=prepare,batch_number,host_version,groups.fields=原值)，使用返回的持久化目标与授权范围。重复 prepare 会被拒绝。
+执行先读当前宿主文档。plan.batches 给出顺序与最多八项的普通字段批次。上传、学校、日期单独执行。每批先只读实际原值；附件批次还需 protected_fields 保存所有可能受解析影响的普通字段，已有值时提供经用户明确确认的 restore_keys/restore_ref 或经当前页面核验的 attachment_mode=attachment_only，然后 checkpoint(phase=prepare,batch_number,host_version,groups.fields=原值)，使用返回的持久化目标与授权范围。重复 prepare 会被拒绝。
 
-普通 label 控件用 ../../../src/host-batch.mjs 中的固定 executeOrdinaryBatch 函数，在当前 CUA REPL 按当前宿主规则定义后执行；不能用 eval、动态导入本地代码或 DOM evaluate 写入。参数来自 prepare 回执，不能临时改目标。函数每字段检查唯一定位、原值、长度、接收方、授权期限并回读；外部异常返回已完成项。宿主不支持此 API 时按当前文档使用等价适配并保持同样检查，不开新浏览器绕过。
+普通控件用 ../../../src/host-batch.mjs 中的固定 executeOrdinaryBatch 函数，在当前 CUA REPL 按当前宿主规则定义后执行；不能用 eval、动态导入本地代码或 DOM evaluate 写入。参数来自 prepare 回执，不能临时改目标。函数每字段检查唯一定位、原值、长度、接收方及授权期限，批次结束统一回读全部实际字段，发现后续写入清空前项也不能报完成；外部异常只读恢复并返回实际观察。支持标签、ARIA 名称与宿主实际可用的观察定位器。宿主不支持此 API 时按当前文档使用等价适配并保持同样检查，不开新浏览器绕过。
+
+## 即时登录验证码
+
+`../../../src/host-batch.mjs` 导出固定 `executeVerificationCode(tab,request,options)`。它只处理已授权登录的一次性短信/邮件验证码，不操作最终申请提交或人机挑战。复制到当前宿主运行时前，先读取宿主文档；每个接口都必须由实际可用能力提供。
+
+- request：`kind:'one_time_code'`、`purpose:'login'`、本次 `request_id`、`origin`、`account`、`channel:'sms'|'email'`、`requested_at`、`expires_at`、已观察的 `locator`。
+- options.authorization：适用用户指令 `user_ref`、相同 purpose/origin/account/channel 及有效期。已有授权直接复用；不会因一次工具往返重新问用户。
+- `receiveCode(scope)`：通过已授权连接器只读获取候选码，返回 null 或带上述请求范围、真实 received_at 和短时 code 的对象。不能只取邮箱里最新的一串数字；将供应商消息关联本次请求必须有账号、发送方、时间或请求标识证据，不能给旧消息伪造 request_id。
+- `readStatus(scope)`：只返回 `pending|accepted|rejected|expired|captcha`，不返回页面敏感值。已进入、验证成功与结果未知分别报告。
+
+先立即读取，未到达才进行短时、有上限的轮询。校验范围和时效后每次调用只填一次，不把 code 返回给模型摘要或写入业务工具。已尝试的请求随后只用 readStatus 核验，不能重复调用来再次写入。失败或未知不重填、不自动重发。需要点击验证码登录按钮时，只能使用已核验的登录动作和相同授权；该函数本身不点击按钮。连接器不可用或人机挑战时及时交接具体动作，不能静默长等。认证流程不调用普通业务 checkpoint；宿主适配器必须限制自身读取超时。
+
+## 普通表单回执与恢复
 
 执行后 checkpoint(phase=complete,groups.fields=真实回执)。通道丢失时保留 pending；下次先逐字段只读、checkpoint(phase=recover)，目标值不重填，第三种值保留。仅恢复批准的原值差异。不要把 unknown 当作失败后可直接重试。批次恢复后最终仍做全页 review 和门户保存核验。
 

@@ -8,7 +8,8 @@ Coming Jobs stores candidate context locally by default. It does not include you
 
 - Confirmed facts and their permitted purposes stay separate from permission to transmit them to a company.
 - Credentials, identity documents and private assessment links must not enter ordinary facts or operation experiences.
-- Final submission, authentication and necessary declarations remain human steps.
+- Login and one-time codes may use authorized host capabilities. The ephemeral code helper binds origin, account, channel, request and expiry; codes do not enter persisted facts, plans, checkpoints or logs.
+- Human-verification challenges, final submission and necessary declarations remain human steps. Unknown authentication results require read-only status checks, not a repeated code write or automatic resend.
 - A changed user value is a conflict to preserve, not a field to overwrite on retry.
 - Operation experience is scoped to a company, portal, stage, structure and host version. It does not authorize actions or modify runtime code.
 - 事实用途与外部发送授权分开；结果未知先回读，不盲目重试。个人答案不进入通用经验，经验不会扩大权限。
@@ -19,4 +20,4 @@ Use GitHub's **Report a vulnerability** private channel when available. Do not p
 
 优先使用 GitHub 私密漏洞报告。若入口不可用，只提交请求私密联系渠道的简短 Issue，不附敏感数据。普通可复现问题请用合成例子。
 
-Supported for this test cycle: `1.0.0-beta.9`. There is no guaranteed response-time or support SLA.
+Current source test cycle: `1.0.0-beta.14`. This does not announce a published release or an update to an installed plugin. There is no guaranteed response-time or support SLA.

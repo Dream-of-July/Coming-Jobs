@@ -5,6 +5,7 @@ import { comparisonSchema } from './comparison-schema.mjs';
 import { fitAssessmentFields, structuredJobFields } from './fit-assessment.mjs';
 import { EVIDENCE_LEVEL, fitProfileFields } from './fit-profile.mjs';
 import { HOST_POLICY } from './policy.mjs';
+import { FORM_FIELD_SCHEMA } from './form-profile.mjs';
 import { S, B, I, E, A, O, V, OP } from './core.mjs';
 const APPROVAL = { confirmed: B, user_ref: S(1000) };
 const PURPOSE = A(E('matching', 'resume', 'form', 'interview', 'tracking'), 5);
@@ -28,6 +29,7 @@ const OBSERVED = O({ key: S(150), value: OBSERVED_VALUE, selected: B, option_id:
 const GROUP = O({ key: S(100), label: S(200), required: B, fields: A(FIELD, 100) });
 const CONTENT = O({ name: S(150), headline: S(300), contact: S(1000), links: A(O({ label: S(100), url: S(3000) }), 10),
     sections: A(O({ title: S(150), items: A(O({ text: S(10000), evidence_ids: A(S(100), 50) }), 30) }), 12) }, ['name', 'headline', 'sections']);
+const BASELINE_MAPPING = O({ content_key: S(100), text: S(10000), evidence_ids: { ...A(S(100), 50), minItems: 1 }, reason: S(2000) });
 const PREF = O({ template: E('classic', 'projects', 'clean'), figma: S(3000), figma_node: S(100), timezone: S(100), company_order: A(S(100), 50), referral_source: S(3000) }, []);
 const definitions = [];
 function tool(name, title, schema, read = false) {
@@ -45,6 +47,7 @@ tool('experience', '限定页面范围的操作经验；候选经合成验证和
 tool('material_index', '已授权材料索引与精确哈希文本缓存；先复用确认基线，不按日期猜版本', MATERIAL_INDEX_SCHEMA);
 tool('tasks', '轻量只读子任务：规划、领取、提案、主 Agent 复核与恢复；宿主执行 Luna medium', tasksSchema(ASSESSMENT));
 tool('context', '一次读取本次任务的画像、完整申请上下文和可选下一步；不得逐字段分页', O({ scope: E('current', 'profile', 'applications', 'application', 'metrics', 'daily'), application_id: S(100), session_id: S(100), turn_id: S(100), since: S(64) }, []), true);
+tool('form_profile', '一次匹配整页字段与公司适用的已确认资料；找出 GitHub 等已知选填项及真实缺口', O({ application_id: S(100), fields: A(FORM_FIELD_SCHEMA, 1000) }), true);
 tool('daily', '公司机会账本与每日五家待办；按预算增量采集、评估、跨日恢复，选定后准备材料', dailySchema(JOB, COLLECTION, ASSESSMENT));
 tool('comparison', '独立公司比较：最多20家公司、累计预算与游标；先封存排序再比较历史，不创建申请', comparisonSchema(JOB, COLLECTION, ASSESSMENT));
 tool('remember', '保存新信息或修正；用户直接陈述可确认，资料提取先成为提案', O({ mode: E('user_statement', 'extracted'), facts: A(FACT, 100), source_id: S(100), confirmed: B, user_ref: S(1000), question_id: S(200), request_id: S(150) }, ['mode', 'facts']));
@@ -61,22 +64,23 @@ tool('shortlist', '按指定公司充分发现；按职责、证据和资格档�
         OP('feedback', { job_id: S(100), decision: E('save', 'reject', 'defer'), reason: S(1000), until: S(80), ...APPROVAL }, ['job_id', 'decision', 'confirmed', 'user_ref'])
     ] });
 tool('material', '逐岗简历：生成、渲染、真实 Figma/PDF 登记、审核、绑定', { oneOf: [
+        OP('context', { job_id: S(100) }), OP('reuse', { material_id: S(100), job_id: S(100) }),
         OP('variation', { material_id: S(100), content_key: S(100), company: S(150), text: S(10000), reason: E('company_expansion', 'portal_length'), max_length: I(1,40000), evidence_ids: A(S(100), 50, 1), ...APPROVAL }, ['material_id','content_key','company','text','reason','evidence_ids','confirmed','user_ref']),
         OP('baseline', { material_id: S(100), sha256: S(64), extracted_text: S(100000), extraction_ref: S(1000), items: A(O({ key: S(100), category: E('education', 'work', 'project', 'achievement', 'award', 'portfolio'), text: S(10000) }), 200, 1), ...APPROVAL }),
-        OP('lineage', { material_id: S(100), base_id: S(100), sha256: S(64), extracted_text: S(100000), extraction_ref: S(1000), ...APPROVAL }),
-        OP('templates'), OP('draft', { job_id: S(100), template: E('classic', 'projects', 'clean'), content: CONTENT, change_summary: S(3000) }, ['job_id', 'content', 'change_summary']),
+        OP('lineage', { material_id: S(100), base_id: S(100), sha256: S(64), extracted_text: S(100000), extraction_ref: S(1000), baseline_mappings: A(BASELINE_MAPPING, 200), ...APPROVAL }, ['material_id', 'base_id', 'sha256', 'extracted_text', 'extraction_ref', 'confirmed', 'user_ref']),
+        OP('templates'), OP('draft', { job_id: S(100), template: E('classic', 'projects', 'clean'), content: CONTENT, change_summary: S(3000), baseline_mappings: A(BASELINE_MAPPING, 200) }, ['job_id', 'content', 'change_summary']),
         OP('render', { material_id: S(100) }),
         OP('register', { material_id: S(100), job_id: S(100), kind: E('resume', 'portfolio', 'photo'), template: E('classic', 'projects', 'clean'), file: S(4000), allowed_root: S(4000), authorized: B, user_ref: S(1000) }, ['kind', 'file', 'authorized', 'user_ref']),
-        OP('approve', { material_id: S(100), sha256: S(64), visual_ok: B, content_ok: B, text_quality: E('pass', 'limited', 'not_checked'), ...APPROVAL }),
+        OP('approve', { material_id: S(100), sha256: S(64), visual_ok: B, content_ok: B, text_quality: E('pass', 'limited', 'not_checked'), reviewed_content_keys: A(S(100), 200), ...APPROVAL }, ['material_id', 'sha256', 'visual_ok', 'content_ok', 'text_quality', 'confirmed', 'user_ref']),
         OP('bind', { application_id: S(100), material_id: S(100) })
     ] });
-tool('plan', '根据实际门户结构一次准备所有区域；缺少内部 checkpoint 不阻塞', O({ application_id: S(100), portal_url: S(3000), page_fingerprint: S(200), groups: A(GROUP, 30), required_groups: A(S(100), 30), checklist: A(CHECK, 100) }, ['application_id', 'portal_url', 'page_fingerprint', 'groups']));
+tool('plan', '根据实际门户结构一次准备所有区域；缺少内部 checkpoint 不阻塞', O({ application_id: S(100), portal_url: S(3000), page_fingerprint: S(200), groups: A(GROUP, 30), required_groups: A(S(100), 30), checklist: A(CHECK, 100), observed_fields: A(FORM_FIELD_SCHEMA, 1000) }, ['application_id', 'portal_url', 'page_fingerprint', 'groups']));
 tool('authorize', '记录本次具体接收方、普通字段和已审核附件的适用授权，不授予最终提交', O({ application_id: S(100), plan_hash: S(64), portal_url: S(3000), session_id: S(100), reuse: B, ...APPROVAL }, ['application_id', 'plan_hash', 'portal_url', 'session_id', 'confirmed', 'user_ref']));
 tool('checkpoint', '每完成区域保存草稿与真实值回读；控件存在不等于填对', O({ application_id: S(100), plan_hash: S(64), session_id: S(100), portal_url: S(3000), page_fingerprint: S(200), observed_at: S(80), portal_saved: B, protected_fields: A(OBSERVED, 1000), phase: E('prepare', 'complete', 'recover'), host_version: S(100), batch_number: I(1, 3000), metrics: O({ agent_ms: I(0, 86400000), tool_ms: I(0, 86400000), human_wait_ms: I(0, 86400000), cua_calls: I(0, 100000), full_snapshots: I(0, 100000) }),
     groups: A(O({ key: S(100), before: A(OBSERVED, 100), fields: A(OBSERVED, 100) }, ['key', 'fields']), 30) }, ['application_id', 'plan_hash', 'session_id', 'portal_url', 'page_fingerprint', 'observed_at', 'groups']));
 tool('recover', '比较原值、目标值和当前值，恢复草稿但不覆盖用户新修改', O({ application_id: S(100), fields: A(OBSERVED, 1000) }), true);
 tool('review', '基于保存的真实回读生成最终审核包，最终由用户提交', O({ application_id: S(100), portal_url: S(3000) }));
-tool('handoff', '登录/验证码/声明/真实未知项的可恢复人工接管', { oneOf: [
+tool('handoff', '宿主能力缺失、人机挑战、声明及真实未知项的可恢复人工接管；先复用适用授权', { oneOf: [
         OP('open', { application_id: S(100), kind: E('login', 'captcha', 'sensitive', 'conflict', 'unknown', 'host_permission'), prompt: S(1500), reply: S(300) }, ['application_id', 'kind', 'prompt']),
         OP('resolve', { application_id: S(100), completed: B, user_ref: S(1000) })
     ] });
