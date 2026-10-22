@@ -1,10 +1,11 @@
+import { applyBatch } from './apply-batch.mjs';
 import { materialIndex } from './material-index.mjs';
 import { agentTasks } from './tasks.mjs';
 import { executionCheckpoint } from './execution.mjs';
 import { experience } from './experience.mjs';
 import { daily, dailySummary, dailyFlow } from './daily.mjs';
 import { comparison } from './comparison.mjs';
-import { candidateFitContext, saveFitProfile } from './fit-profile.mjs';
+import { candidateFitContext, saveFitProfile, fitQuestions } from './fit-profile.mjs';
 import { authenticationContext } from './authentication.mjs';
 import { currentHost, boundedResult } from './host.mjs';
 import { TOOLS, INTERNAL_SCHEMAS } from './catalog.mjs';
@@ -35,7 +36,7 @@ export const handlers = {
                 chatgpt_memory: 'host_tool_or_authorized_export', transcription: 'host_required', email_sms: 'authorized_host_connector_or_manual_read', scheduler: 'host_required', final_submit: 'batch_grant_only' },
             recent_handoff: a.session_id ? s.get('turn', a.session_id, false) : null };
     },
-    material_index: materialIndex, tasks: agentTasks, experience, daily, comparison, remember, profile: (s,a) => a.operation === 'fit_context' ? saveFitProfile(s,a) : controlProfile(s,a), jobs: (s, a) => a.operation === 'ingest' ? saveJobs(s, a) : assessJobs(s, a), shortlist, material: materialAction,
+    apply_batch:applyBatch, material_index: materialIndex, tasks: agentTasks, experience, daily, comparison, remember, profile: (s,a) => a.operation === 'fit_context' ? saveFitProfile(s,a) : a.operation === 'fit_questions' ? fitQuestions(s) : controlProfile(s,a), jobs: (s, a) => a.operation === 'ingest' ? saveJobs(s, a) : assessJobs(s, a), shortlist, material: materialAction,
     plan: planApplication, authorize, checkpoint: (s,a) => a.phase ? executionCheckpoint(s,a) : checkpoint(s,a), recover: recovery, review, handoff, outcome: recordOutcome, followup, interview, workspace, finish: finishTurn
 };
 export function call(store, name, args = {}) {

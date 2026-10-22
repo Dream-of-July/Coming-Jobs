@@ -6,6 +6,7 @@ import { remember } from './profile.mjs';
 import { normalizeFitAssessment } from './fit-assessment.mjs';
 import { candidateFitContext } from './fit-profile.mjs';
 
+const APPLY_KINDS=['target_list','apply_batch','approval_sheet','apply_grant','human_step','portal_session','material_approval','claim','submit_attempt','fit_question'];
 const COMPARISON_KINDS = ['comparison_run','comparison_budget','comparison_task','comparison_scope','comparison_evaluation','comparison_receipt','comparison_snapshot','comparison_history','daily_independent'];
 export function workspace(store, a) {
     if (a.operation === 'presentation') {
@@ -29,7 +30,7 @@ export function workspace(store, a) {
     if (a.operation === 'export') {
         consent(a.authorized, a.user_ref);
         const kinds = ['fact', 'proposal', 'fact_history', 'settings', 'job', 'collection', 'job_snapshot', 'assessment', 'batch', 'application', 'plan', 'draft', 'draft_history', 'feedback', 'capability', 'material', 'observation', 'notification', 'source', 'interview_pack', 'interview_review', 'company', 'opportunity', 'daily_source', 'daily_budget', 'daily_task', 'daily_run', 'daily_report', 'daily_feedback', 'daily_todo', 'application_scope', 'experience', 'execution_batch', 'baseline_history', 'execution_summary', 'material_variation', 'agent_task', 'agent_attempt', 'material_index_cache'];
-        kinds.push(...COMPARISON_KINDS);
+        kinds.push(...COMPARISON_KINDS,...APPLY_KINDS);
         const records = Object.fromEntries(kinds.map(k => [k, store.all(k)]));
         const file = store.writeExport(`jobos-export-${Date.now()}.json`, { format: CONTRACT, workspace: store.workspace, created_at: now(), records });
         const assetsDir = file.replace(/\.json$/, '-assets');
@@ -60,7 +61,7 @@ export function workspace(store, a) {
         noSecrets(inspected);
         if (data.format === CONTRACT) {
             const kinds = ['fact', 'proposal', 'fact_history', 'settings', 'job', 'collection', 'job_snapshot', 'assessment', 'batch', 'application', 'plan', 'draft', 'draft_history', 'feedback', 'capability', 'material', 'observation', 'notification', 'source', 'interview_pack', 'interview_review', 'company', 'opportunity', 'daily_source', 'daily_budget', 'daily_task', 'daily_run', 'daily_report', 'daily_feedback', 'daily_todo', 'application_scope', 'experience', 'execution_batch', 'baseline_history', 'execution_summary', 'material_variation', 'agent_task', 'agent_attempt', 'material_index_cache'];
-            kinds.push(...COMPARISON_KINDS);
+            kinds.push(...COMPARISON_KINDS,...APPLY_KINDS);
             assert(kinds.every(k => store.all(k).length === 0), 'restore_not_empty', '恢复备份需要空的新工作区，避免覆盖现有资料。');
             const assetRoot = a.assets_dir ?? a.file.replace(/\.json$/, '-assets');
             for (const r of [...(data.records.material ?? []), ...(data.records.source ?? [])])
@@ -80,6 +81,10 @@ export function workspace(store, a) {
                     }
                     if (k === 'agent_attempt' && r.state === 'running') r.state = 'interrupted';
                     if (k === 'agent_task') { r.state = 'pending'; r.attempt_id = null; r.owner = null; r.result = null; r.cache_hit = false; r.checked_ids = []; r.error_ids = []; r.review_required = []; }
+                    if (k === 'apply_grant') r.state='voided';
+                    if (k === 'human_step') r.state='closed';
+                    if (k === 'apply_batch') r.state='imported';
+                    if (k === 'submit_attempt') r.state='unknown';
                     if (k === 'experience') r.state = 'candidate';
                     if (k === 'execution_batch') { r.state = 'unknown'; r.grant = null; }
                     if (k === 'application') {

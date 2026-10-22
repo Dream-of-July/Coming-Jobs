@@ -1,3 +1,4 @@
+import { assessmentStamp, assessmentCurrent, softStale } from './validity.mjs';
 import { assert, consent, noSecrets, hash, id, now, iso, publicUrl } from './core.mjs';
 import { facts, profileDigest } from './profile.mjs';
 import { candidateFitContext } from './fit-profile.mjs';
@@ -7,7 +8,7 @@ import { compareLiveLists } from './collectors/index.mjs';
 
 export function readAssessment(store, job) {
     const value = store.get('assessment', job.id, false);
-    return value ? normalizeFitAssessment(value, job, candidateFitContext(store)) : null;
+    return value ? {...normalizeFitAssessment({...value,tier:value.requested_tier??value.tier}, job, candidateFitContext(store)),soft_stale:softStale(store,value)} : null;
 }
 
 const scopedEntryIds = (entries, c) => [...new Set(entries.filter(e => (!e.track || e.track === c.track) && (!e.campaign || e.campaign === c.campaign)).flatMap(e => e.external_ids))];
@@ -93,7 +94,7 @@ export function assessJobs(store, a) {
             assert(ref.level === (available.get(ref.evidence_id).evidence_level ?? 'inference'), 'evidence_level_mismatch', '证据等级必须沿用来源，不能将推断或总结升级为原始材料。');
         }
         const normalized = normalizeFitAssessment(assessment, job, candidateFitContext(store));
-        const record = { ...normalized, assessment_version: 2, profile_hash: profileDigest(store), evaluated_at: now(), semantics: '按职责、证据等级与硬门槛判断；不计算匹配分数或录用概率' };
+        const record = { ...normalized, requested_tier:assessment.tier, ...assessmentStamp(store,normalized), assessment_version: 2, profile_hash: profileDigest(store), evaluated_at: now(), semantics: '按职责、证据等级与硬门槛判断；不计算匹配分数或录用概率' };
         result.push(store.put('assessment', job.id, record));
     }
     return { assessments: result };
@@ -114,11 +115,11 @@ export function shortlist(store, a) {
             const job = store.get('job',item.job_id), assessment = readAssessment(store,job), quota = jobOpportunity(store,job);
             assert(quota.state !== 'exhausted','opportunity_exhausted','该公司本批次名额已用完，只作参考并继续跟进。');
             assert(quota.state === 'available','opportunity_unverified','先复核当前公司名额、投递规则和既有申请。');
-            assert(assessment?.job_hash===job.content_hash&&assessment.profile_hash===profileDigest(store)&&isRecommendable(assessment),'qualification_unverified','岗位资格、证据或画像已变化，请先重评，不沿用旧排序。');
+            assert(assessmentCurrent(store,assessment,job)&&isRecommendable(assessment),'qualification_unverified','岗位资格、证据或画像已变化，请先重评，不沿用旧排序。');
             const collection=store.all('collection').find(c=>c.company===job.company&&c.track===job.track&&(c.campaign??'')===(job.campaign??'')&&c.mode===job.mode);
             const check=collectionStatus(store,collection);
             assert(check.complete&&check.live_verified,'collection_incomplete','当前完整目录和实时在招列表尚未复核。');
-            const pending=store.all('job').filter(j=>j.company===job.company&&j.track===job.track&&(j.campaign??'')===(job.campaign??'')&&j.mode===job.mode&&collection.external_ids.includes(j.external_id)).some(j=>{const s=readAssessment(store,j);return !s||s.job_hash!==j.content_hash||s.profile_hash!==profileDigest(store);});
+            const pending=store.all('job').filter(j=>j.company===job.company&&j.track===job.track&&(j.campaign??'')===(job.campaign??'')&&j.mode===job.mode&&collection.external_ids.includes(j.external_id)).some(j=>{const s=readAssessment(store,j);return !assessmentCurrent(store,s,j);});
             assert(!pending,'scope_review_incomplete','当前范围仍有岗位未完成有效评估，请先补齐。');
             return createApplication(store,item.job_id,a.user_ref,item.job_hash);
         });
@@ -149,9 +150,9 @@ export function shortlist(store, a) {
     const collectionPending = collectionChecks.some(c => !c.complete || !c.live_verified) || companiesScope.some(company => !collections.some(c => c.company === company));
     const pendingReview = scopeJobs.filter(j => {
         const review = store.get('assessment', j.id, false);
-        return !review || review.job_hash !== j.content_hash || review.profile_hash !== profileDigest(store);
+        return !assessmentCurrent(store,review,j);
     });
-    const evaluated = store.all('assessment').filter(x => x.profile_hash === profileDigest(store)).map(x => { const job = store.get('job',x.id); return { assessment: readAssessment(store,job), job }; });
+    const evaluated = store.all('assessment').filter(x => assessmentCurrent(store,x,store.get('job',x.job_id??x.id))).map(x => { const job = store.get('job',x.id); return { assessment: readAssessment(store,job), job }; });
     const entries = evaluated
         .filter(({ job: j, assessment: s }) => (!a.campaign || j.campaign === a.campaign) && j.state === 'open' && s.job_hash === j.content_hash && isRecommendable(s) && j.mode === (a.mode ?? 'live') && !applied.has(j.id) && !previouslyApplied(store,j) && jobOpportunity(store,j).state === 'available' &&
         (!companiesScope.length || companiesScope.some(company => company.toLowerCase() === j.company.toLowerCase())) &&

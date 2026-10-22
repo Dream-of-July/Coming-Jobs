@@ -15,8 +15,15 @@ export function facts(store, purpose, scope = 'global') {
         (f.scope === 'global' || f.scope === scope) && (!f.expires_at || Date.parse(f.expires_at) > Date.now()));
     return available.filter(f => f.scope === scope || !available.some(other => other.key === f.key && other.scope === scope));
 }
+export function factRole(fact) {
+ const key=typeof fact==='string'?fact:fact.key;
+ if (/^(?:workflow\.|company:.*(?:current_action|status|last_action|next_step|progress))/.test(key)) return 'bookkeeping';
+ if (/^intent\./.test(key)) return 'intent';
+ if (['education.graduation_year','education.degree','availability','capabilities'].includes(key)) return 'fit_projection';
+ return 'evidence';
+}
 export function profileDigest(store, purpose = 'matching') {
-    return hash(facts(store, purpose).map(f => [f.id, f.value, f.purposes, f.scope, f.evidence_level ?? 'unknown']).sort((a, b) => a[0].localeCompare(b[0])));
+    return hash(facts(store, purpose).filter(f => purpose !== 'matching' || ['evidence','intent'].includes(factRole(f))).map(f => [f.id, f.value, f.purposes, f.scope, f.evidence_level ?? 'unknown']).sort((a, b) => a[0].localeCompare(b[0])));
 }
 export function coverage(store) {
     const fs = facts(store, 'matching'), keys = new Set(fs.map(f => f.key));
@@ -49,7 +56,9 @@ export function remember(store, a) {
     const out = [];
     for (const entry of a.facts) {
         noSecrets(entry.value, entry.key);
-        const purposes = entry.purposes ?? ['matching', 'resume', 'form', 'interview'];
+        const role=factRole(entry);
+        const purposes = entry.purposes ?? (role === 'bookkeeping' ? ['tracking'] : ['matching', 'resume', 'form', 'interview']);
+        assert(role !== 'bookkeeping' || !purposes.includes('matching'), 'bookkeeping_matching', '记账类事实只能用于跟踪，不能参与岗位匹配。');
         assert(purposes.every(p => PURPOSES.includes(p)), 'invalid_purpose', '用途不受支持。');
         if (source)
             assert(purposes.every(p => source.purposes.includes(p)), 'scope_violation', '不能扩大资料导入时的授权用途。');

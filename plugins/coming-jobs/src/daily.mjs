@@ -1,3 +1,4 @@
+import { assessmentCurrent } from './validity.mjs';
 import { currentHost } from './host.mjs';
 import { assert, consent, hash, now, iso, noSecrets, publicUrl } from './core.mjs';
 import { facts, coverage, profileDigest } from './profile.mjs';
@@ -35,7 +36,7 @@ function scopedJobs(store, company, scope, mode) {
 }
 function validAssessment(store, job) {
     const a = readAssessment(store, job);
-    return a?.job_hash === job.content_hash && a.profile_hash === profileDigest(store) ? a : null;
+    return assessmentCurrent(store,a,job) ? a : null;
 }
 function scopeReady(store, run, company, scope) {
     const source = sourceState(store, company, scope, run.mode);

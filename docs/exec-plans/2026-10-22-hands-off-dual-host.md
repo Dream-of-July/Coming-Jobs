@@ -58,3 +58,7 @@ Phase 1 complete: commit d36677b, 359/359 tests, public check clear.
 Phase 2: beta.16 versions unified (package, Codex manifest, Claude manifest, runtime, generated release). Dual installers and separate absolute Claude files implemented. New install tests RED→GREEN; initialize and tools/list run from both installed artifacts. Legacy config tests intentionally updated: installer must leave user config byte-identical.
 
 Ruling: CLI registration/install use an isolated host registry, and Claude local scope inside the installed release. Automatic global enablement would indirectly edit the explicitly forbidden user settings. Manual enablement instructions and --plugin-dir are returned instead; cost is a one-time manual host enablement. No user host settings are changed.
+
+Phase 2 complete: commit 213788d, 363/363 tests, public check clear.
+
+Phase 3: four behavioral regressions first failed, now pass: tracking writes, dependency validity, one-time structured questions, approved-target JD changes. Full run initially 366/367; existing daily corruption test now corrupts evidence_digest instead of the retired all-profile validity key, preserving its fail-closed purpose.

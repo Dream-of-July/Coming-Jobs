@@ -1,3 +1,4 @@
+import { applyBatchSchema } from './apply-batch-schema.mjs';
 import { MATERIAL_INDEX_SCHEMA } from './material-index.mjs';
 import { tasksSchema } from './tasks.mjs';
 import { dailySchema } from './daily-schema.mjs';
@@ -37,6 +38,7 @@ function tool(name, title, schema, read = false) {
     definitions.push({ name: 'jobos1_' + name, title, description: title + '。使用当前宿主能力执行已授权外部操作；最终提交需用户逐批明确批准。', inputSchema: publicSchema(schema),
         annotations: { readOnlyHint: read, destructiveHint: false, openWorldHint: false, idempotentHint: read } });
 }
+tool('apply_batch','按批次管理目标、审批与集中的人工步骤',applyBatchSchema);
 const EXPERIENCE_SCOPE = O({ company: S(150), origin: S(500), stage: E('identity', 'education', 'experience', 'attachment', 'review'), structure: S(64), host_version: S(100) });
 tool('experience', '限定页面范围的操作经验；候选经合成验证和当前只读匹配才可复用', { oneOf: [
     OP('register', { scope: EXPERIENCE_SCOPE, strategy: E('semantic_fields', 'school_exact_option', 'date_dependency_order', 'upload_then_parse_then_edit', 'attachment_only') }),
@@ -51,7 +53,7 @@ tool('daily', '公司机会账本与每日五家待办；按预算增量采集�
 tool('comparison', '独立公司比较：最多20家公司、累计预算与游标；先封存排序再比较历史，不创建申请', comparisonSchema(JOB, COLLECTION, ASSESSMENT));
 tool('remember', '保存新信息或修正；用户直接陈述可确认，资料提取先成为提案', O({ mode: E('user_statement', 'extracted'), facts: A(FACT, 100), source_id: S(100), confirmed: B, user_ref: S(1000), question_id: S(200), request_id: S(150) }, ['mode', 'facts']));
 tool('profile', '逐题访谈、跳过、暂停、偏好及事实核对', { oneOf: [
-        OP('fit_context', { ...fitProfileFields, ...APPROVAL }, ['confirmed', 'user_ref']),
+        OP('fit_questions'), OP('fit_context', { ...fitProfileFields, ...APPROVAL }, ['confirmed', 'user_ref']),
         OP('confirm', { proposal_ids: A(S(100), 100), ...APPROVAL }), OP('question', { key: S(150), prompt: S(1000) }), OP('skip'), OP('pause'), OP('resume'), OP('recommend'),
         OP('preferences', { preferences: PREF, ...APPROVAL }), OP('revoke', { fact_id: S(100), ...APPROVAL })
     ] });

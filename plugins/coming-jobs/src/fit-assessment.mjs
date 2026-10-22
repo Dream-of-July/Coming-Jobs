@@ -12,6 +12,7 @@ export const fitAssessmentFields = {
     core_deliverable: E(...deliverables),
     hard_gates: A(O({
         gate: E(...gates), source: E('requirement', 'preferred', 'structured_field'),
+        criterion: O({kind:E('graduation_year','days_per_week','continuous_months','location','degree'),min:{type:'number'},max:{type:'number'},equals:S(300),values:A(S(300),30)},['kind']),
         status: E('meets', 'fails', 'unknown', 'conflict'), note: S(2000), requirement_id: S(300)
     }, ['gate', 'source', 'status', 'note']), 100),
     tier: E(...tiers),
@@ -108,6 +109,13 @@ export function normalizeFitAssessment(assessment, job, candidate = {}) {
         assert(requirement, 'invalid_requirement_reference', '硬性条件引用了不存在的 JD 条目。', '请使用当前岗位的 requirement_id，优先项不能充当硬门槛。');
         assert(['requirement', 'preferred'].includes(requirement.kind), 'invalid_gate_source', '岗位职责条目不能充当资格门槛。', '请引用明确的任职要求或优先项，并保留其原始性质。');
         return { ...gate, source: requirement.kind === 'preferred' ? 'preferred' : 'requirement' };
+    });
+    hardGates=hardGates.map(g=>{
+        if(!g.criterion||g.source==='preferred'||g.status==='conflict')return g;
+        const c=g.criterion,v=['graduation_year','degree'].includes(c.kind)?candidate[c.kind]:candidate.availability?.[c.kind];
+        const known=v!==undefined&&v!==null&&v!=='';
+        const meets=known&&(c.min===undefined||typeof v==='number'&&v>=c.min)&&(c.max===undefined||typeof v==='number'&&v<=c.max)&&(c.equals===undefined||String(v).normalize('NFKC').trim()===c.equals.normalize('NFKC').trim())&&(!c.values||c.values.includes(v));
+        return {...g,status:!known?'unknown':meets?'meets':'fails'};
     });
     const conflicts = new Map(hardGates.filter(gate => gate.source !== 'preferred' && gate.status === 'conflict').map(gate => [gate.gate, gate.note]));
     for (const conflict of job.qualification_conflicts ?? []) conflicts.set(conflict.gate, conflict.note);

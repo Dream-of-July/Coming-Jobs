@@ -1,5 +1,62 @@
 [
   {
+    "name": "jobos1_apply_batch",
+    "title": "按批次管理目标、审批与集中的人工步骤",
+    "description": "按批次管理目标、审批与集中的人工步骤。使用当前宿主能力执行已授权外部操作；最终提交需用户逐批明确批准。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "targets"
+          ]
+        },
+        "job_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "maxItems": 50
+        },
+        "target_list_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "numbers": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "maxItems": 50
+        },
+        "confirmed": {
+          "type": "boolean"
+        },
+        "user_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
     "name": "jobos1_experience",
     "title": "限定页面范围的操作经验；候选经合成验证和当前只读匹配才可复用",
     "description": "限定页面范围的操作经验；候选经合成验证和当前只读匹配才可复用。使用当前宿主能力执行已授权外部操作；最终提交需用户逐批明确批准。",
@@ -534,6 +591,45 @@
                             "preferred",
                             "structured_field"
                           ]
+                        },
+                        "criterion": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "graduation_year",
+                                "days_per_week",
+                                "continuous_months",
+                                "location",
+                                "degree"
+                              ]
+                            },
+                            "min": {
+                              "type": "number"
+                            },
+                            "max": {
+                              "type": "number"
+                            },
+                            "equals": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            },
+                            "values": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              },
+                              "maxItems": 30
+                            }
+                          },
+                          "required": [
+                            "kind"
+                          ],
+                          "additionalProperties": false
                         },
                         "status": {
                           "type": "string",
@@ -1736,6 +1832,45 @@
                         "structured_field"
                       ]
                     },
+                    "criterion": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "graduation_year",
+                            "days_per_week",
+                            "continuous_months",
+                            "location",
+                            "degree"
+                          ]
+                        },
+                        "min": {
+                          "type": "number"
+                        },
+                        "max": {
+                          "type": "number"
+                        },
+                        "equals": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        },
+                        "values": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "maxItems": 30
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ],
+                      "additionalProperties": false
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -2544,6 +2679,45 @@
                         "structured_field"
                       ]
                     },
+                    "criterion": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "graduation_year",
+                            "days_per_week",
+                            "continuous_months",
+                            "location",
+                            "degree"
+                          ]
+                        },
+                        "min": {
+                          "type": "number"
+                        },
+                        "max": {
+                          "type": "number"
+                        },
+                        "equals": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        },
+                        "values": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "maxItems": 30
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ],
+                      "additionalProperties": false
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -2822,6 +2996,7 @@
         "operation": {
           "type": "string",
           "enum": [
+            "fit_questions",
             "fit_context",
             "confirm",
             "question",
@@ -2837,6 +3012,11 @@
           "type": "integer",
           "minimum": 1900,
           "maximum": 2200
+        },
+        "degree": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
         },
         "availability": {
           "type": "object",
@@ -3621,6 +3801,45 @@
                         "preferred",
                         "structured_field"
                       ]
+                    },
+                    "criterion": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "graduation_year",
+                            "days_per_week",
+                            "continuous_months",
+                            "location",
+                            "degree"
+                          ]
+                        },
+                        "min": {
+                          "type": "number"
+                        },
+                        "max": {
+                          "type": "number"
+                        },
+                        "equals": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        },
+                        "values": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "maxItems": 30
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ],
+                      "additionalProperties": false
                     },
                     "status": {
                       "type": "string",

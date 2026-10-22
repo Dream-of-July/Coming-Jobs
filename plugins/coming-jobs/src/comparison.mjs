@@ -1,3 +1,4 @@
+import { assessmentCurrent } from './validity.mjs';
 import { assert, hash, now, noSecrets, publicUrl } from './core.mjs';
 import { facts, profileDigest } from './profile.mjs';
 import { saveJobs, assessJobs, collectionStatus, requirements } from './jobs.mjs';
@@ -39,7 +40,7 @@ function sourceState(store, run, company, scope) {
 function validAssessment(store, run, job) {
     const entry = store.get('comparison_evaluation', evaluationId(run, job), false);
     const a = entry?.assessment;
-    return entry?.job_hash === job.content_hash && entry.profile_hash === profileDigest(store) &&
+    return entry?.job_hash === job.content_hash && assessmentCurrent(store,a,job) &&
         a?.service_object && a.core_deliverable && a.tier && Array.isArray(a.hard_gates) && Array.isArray(a.evidence_refs) ? a : null;
 }
 function scopeView(store, run, company, scope) {
@@ -421,7 +422,7 @@ function report(store, runId) {
         if (item.category !== 'recommendations') return item;
         const company = run.companies.find(c => c.company_id === item.company_id), scope = company.scopes.find(s => sameScope(s, item));
         const job = store.get('job', item.job_id, false);
-        if (!job || job.content_hash !== item.job_hash || snapshot.profile_hash !== profileDigest(store)) return { ...item, rank: null,
+        if (!job || job.content_hash !== item.job_hash || !assessmentCurrent(store,store.get('comparison_evaluation',evaluationId(run,job),false)?.assessment,job)) return { ...item, rank: null,
             category: 'qualification_hold', reason: '封存后岗位正文或候选人资料发生变化，需重新评估后再决定行动。' };
         const decision = assessmentDisposition(store, run, company, scope, job, { ...item, evidence_refs: item.evidence_refs.map(({ text, ...ref }) => ref) });
         const view = scopeView(store, run, company, scope);
