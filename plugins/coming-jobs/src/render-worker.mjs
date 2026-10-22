@@ -6,14 +6,15 @@ import path from 'node:path';
 const input=JSON.parse(readFileSync(0,'utf8')),profile=mkdtempSync(path.join(os.tmpdir(),'jobos-render-'));
 const chrome=spawn(input.executable,['--headless=new','--remote-debugging-pipe','--no-first-run','--no-default-browser-check','--user-data-dir='+profile,
  '--disable-background-networking','--disable-sync','--disable-extensions','--disable-component-update','--disable-default-apps',
- '--host-resolver-rules=MAP * ~NOTFOUND','--proxy-server=http://127.0.0.1:9','--proxy-bypass-list=<-loopback>','about:blank'],{stdio:['ignore','ignore','pipe','pipe','pipe']});
-let next=0,buffer='',session=null,stage='browser_start',browserReason=null,exited=false;const waiting=new Map();
+ '--host-resolver-rules=MAP * ~NOTFOUND','--proxy-server=http://127.0.0.1:9','--proxy-bypass-list=<-loopback>','about:blank'],{detached:process.platform!=='win32',stdio:['ignore','ignore','pipe','pipe','pipe']});
+let next=0,buffer='',session=null,stage='browser_start',browserReason=null,exited=false,closed=false,failure=null;const waiting=new Map();
+const browserClosed=new Promise(resolve=>chrome.once('close',()=>{closed=true;resolve();}));
 const fault=(reason,method=null)=>Object.assign(Error('Offline renderer failure'),{reason,method});
 const rejectWaiting=reason=>{for(const x of waiting.values())x.reject(fault(reason,x.method));waiting.clear();};
 // Drain browser diagnostics so a full stderr pipe cannot stall rendering. Only
 // known reason codes leave this process; raw logs may contain private page data.
 let stderrTail='';chrome.stderr.on('data',chunk=>{const text=stderrTail+chunk.toString();if(/No usable sandbox|SUID sandbox|Failed to move to new namespace|Running as root without --no-sandbox|apparmor.*denied/i.test(text))browserReason='sandbox_unavailable';stderrTail=text.slice(-128);});
-const stop=()=>{try{chrome.kill('SIGKILL');}catch{}};
+const stop=()=>{try{if(process.platform!=='win32'&&chrome.pid)process.kill(-chrome.pid,'SIGKILL');else chrome.kill('SIGKILL');}catch{try{chrome.kill('SIGKILL');}catch{}}};
 const deadline=setTimeout(()=>{rejectWaiting('render_timeout');stop();},30000);
 process.on('SIGTERM',()=>{stop();process.exit(1);});
 const send=(method,params={},sid=session)=>new Promise((resolve,reject)=>{if(exited)return reject(fault(browserReason??'browser_exit',method));const id=++next;waiting.set(id,{resolve,reject,method});chrome.stdio[3].write(JSON.stringify({id,method,params,...(sid?{sessionId:sid}:{})})+'\0');});
@@ -42,5 +43,13 @@ try{
  stage='pdf';const pdf=await send('Page.printToPDF',{printBackground:true,paperWidth:596/72,paperHeight:receipt.height_px/96,marginTop:0,marginRight:0,marginBottom:0,marginLeft:0,preferCSSPageSize:false});writeFileSync(input.pdf,Buffer.from(pdf.data,'base64'),{mode:0o600});
  stage='screenshot';const screenshot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width:795,height:receipt.height_px,scale:1}});writeFileSync(input.screenshot,Buffer.from(screenshot.data,'base64'),{mode:0o600});
  process.stdout.write(JSON.stringify(receipt));
-}catch(e){process.stderr.write(JSON.stringify({reason:browserReason??e.reason??'render_failed',stage,method:e.method??null})+'\n');process.exitCode=1;}
-finally{clearTimeout(deadline);stop();await new Promise(r=>exited||chrome.exitCode!==null?r():chrome.once('exit',r));rmSync(profile,{recursive:true,force:true});}
+}catch(e){failure=e;process.exitCode=1;}
+finally{
+ clearTimeout(deadline);stop();
+ // Wait for stderr to close as well as the browser PID. Pipe errors can arrive
+ // before a final sandbox message, and helper processes can still use profile files.
+ await new Promise(resolve=>{const timer=setTimeout(resolve,2000);browserClosed.then(()=>{clearTimeout(timer);resolve();});});
+ try{rmSync(profile,{recursive:true,force:true,maxRetries:10,retryDelay:100});}catch{failure??=fault('profile_cleanup');stage='cleanup';process.exitCode=1;}
+ if(!closed&&!failure){failure=fault('profile_cleanup');stage='cleanup';process.exitCode=1;}
+ if(failure)process.stderr.write(JSON.stringify({reason:browserReason??failure.reason??'render_failed',stage,method:failure.method??null})+'\n');
+}

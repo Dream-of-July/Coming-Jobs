@@ -24,7 +24,8 @@ export function renderHTML(content, template = 'projects') {
 }
 export function browserExecutable() {
     const candidates = [process.env.JOBOS_PDF_BROWSER, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-        '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome',
+        // Ubuntu's packaged Chrome path has a scoped AppArmor userns profile.
+        '/opt/google/chrome/chrome', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser',
         process.env.PROGRAMFILES ? path.join(process.env.PROGRAMFILES, 'Google/Chrome/Application/chrome.exe') : null,
         process.env['PROGRAMFILES(X86)'] ? path.join(process.env['PROGRAMFILES(X86)'], 'Microsoft/Edge/Application/msedge.exe') : null];
     return candidates.find(p => p && existsSync(p)) ?? null;

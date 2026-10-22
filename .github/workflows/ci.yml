@@ -16,6 +16,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      - name: Inspect system browser
+        run: node --input-type=module -e 'import {browserExecutable} from "./plugins/coming-jobs/src/materials.mjs"; import {spawnSync} from "node:child_process"; const browser=browserExecutable(); if(!browser)throw Error("System Chrome is required for renderer CI"); const version=spawnSync(browser,["--version"],{encoding:"utf8"}); if(version.status!==0)throw Error("System Chrome version check failed"); console.log(browser); console.log(version.stdout.trim());'
       - run: node scripts/build-release.mjs
       - run: node scripts/check-public.mjs
       - run: node scripts/install.mjs --verify-only
