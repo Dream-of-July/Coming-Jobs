@@ -27,7 +27,7 @@ const FIELD = O({ key: S(150), label: S(200), type: E('free_text', 'portal_selec
     required: B, attachment_mode: E('parse', 'attachment_only'), restore_keys: A(S(150),1000), restore_confirmed: B, restore_ref: S(1000), content_key: S(100), variation_id: S(100), max_bytes: I(1, 100000000), allowed_mime_types: A(E('application/pdf', 'image/png', 'image/jpeg'), 3), attachment_protocol: E('complete'), max_length: I(1, 40000), value: V, evidence_ids: A(S(100), 30), material_id: S(100), option_id: S(200), locator: LOCATOR, selected_locator: LOCATOR }, ['key', 'label', 'type', 'required']);
 const OBSERVED_VALUE = { oneOf: [{ type: 'string', maxLength: 40000 }, B, { type: 'number' }, A({ type: 'string', maxLength: 4000 }, 100)] };
 const OBSERVED = O({ key: S(150), value: OBSERVED_VALUE, selected: B, option_id: {type:'string', maxLength:200}, upload_complete: B, local_sha256: S(64), file_name: {type:'string', maxLength:300}, file_bytes: I(0, 100000000), file_count: I(0, 100), read_state: E('known', 'unreadable'), portal_saved: B, file_selected: B, parse_complete: B, attachment_associated: B }, ['key']);
-const CONTROL=O({text:S(100000),key:S(150),label:S(300),type:S(100),required:B,text_hash:S(64),title:S(300),excerpt:S(2000)},['key','type','required']);
+const CONTROL=O({text:S(100000),key:S(150),label:S(300),type:S(100),required:B,value:OBSERVED_VALUE,read_state:E('known','unreadable'),selected:B,text_hash:S(64),title:S(300),excerpt:S(2000)},['key','type','required']);
 const GROUP = O({ key: S(100), label: S(200), required: B, fields: A(FIELD, 100) });
 const CONTENT = O({ name: S(150), headline: S(300), contact: S(1000), links: A(O({ label: S(100), url: S(3000) }), 10),
     sections: A(O({ title: S(150), items: A(O({ text: S(10000), evidence_ids: A(S(100), 50) }), 30) }), 12) }, ['name', 'headline', 'sections']);
@@ -67,7 +67,7 @@ tool('shortlist', '按指定公司充分发现；按职责、证据和资格档�
         OP('feedback', { job_id: S(100), decision: E('save', 'reject', 'defer'), reason: S(1000), until: S(80), ...APPROVAL }, ['job_id', 'decision', 'confirmed', 'user_ref'])
     ] });
 tool('material', '逐岗简历：生成、渲染、真实 Figma/PDF 登记、审核、绑定', { oneOf: [
-        OP('template_baseline',{file:S(4000),allowed_root:S(4000),render_script:S(4000),asset_paths:A(S(4000),100),text_paths:A(S(1000),200),identity_paths:A(S(1000),100),...APPROVAL},['file','render_script','text_paths','confirmed','user_ref']),
+        OP('template_baseline',{file:S(4000),allowed_root:S(4000),render_script:S(4000),asset_paths:A(S(4000),100),text_paths:A(S(1000),200),identity_paths:A(S(1000),100),editable_paths:A(S(1000),200),...APPROVAL},['file','render_script','text_paths','confirmed','user_ref']),
         OP('claim_propose',{claims:A(O({path:S(1000),text:S(10000),evidence_ids:A(S(100),50)}),100)}),
         OP('claim_approve',{claim_ids:A(S(100),100),...APPROVAL}),
         OP('compose',{job_id:S(100),claim_ids:A(S(100),100),external_name:S(300)},['job_id']),
@@ -82,7 +82,7 @@ tool('material', '逐岗简历：生成、渲染、真实 Figma/PDF 登记、审
     ] });
 tool('plan', '根据实际门户结构一次准备所有区域；缺少内部 checkpoint 不阻塞', O({ application_id: S(100), portal_url: S(3000), page_fingerprint: S(200), groups: A(GROUP, 30), required_groups: A(S(100), 30), checklist: A(CHECK, 100) }, ['application_id', 'portal_url', 'page_fingerprint', 'groups']));
 tool('authorize', '记录本次具体接收方、普通字段和已审核附件的适用授权，不授予最终提交', O({ application_id: S(100), plan_hash: S(64), portal_url: S(3000), session_id: S(100), reuse: B, ...APPROVAL }, ['application_id', 'plan_hash', 'portal_url', 'session_id', 'confirmed', 'user_ref']));
-tool('checkpoint', '每完成区域保存草稿与真实值回读；控件存在不等于填对', O({ application_id: S(100), plan_hash: S(64), session_id: S(100), portal_url: S(3000), page_fingerprint: S(200), observed_at: S(80), portal_saved: B, controls:A(CONTROL,1000), protected_fields: A(OBSERVED, 1000), phase: E('prepare', 'complete', 'recover'), host_version: S(100), batch_number: I(1, 3000), metrics: O({ agent_ms: I(0, 86400000), tool_ms: I(0, 86400000), human_wait_ms: I(0, 86400000), cua_calls: I(0, 100000), full_snapshots: I(0, 100000) }),
+tool('checkpoint', '每完成区域保存草稿与真实值回读；控件存在不等于填对', O({ application_id: S(100), plan_hash: S(64), session_id: S(100), portal_url: S(3000), page_fingerprint: S(200), observed_at: S(80), portal_saved: B, single_submit:B,persistence_ref:S(1000),controls:A(CONTROL,1000), protected_fields: A(OBSERVED, 1000), phase: E('prepare', 'complete', 'recover'), host_version: S(100), batch_number: I(1, 3000), metrics: O({ agent_ms: I(0, 86400000), tool_ms: I(0, 86400000), human_wait_ms: I(0, 86400000), cua_calls: I(0, 100000), full_snapshots: I(0, 100000) }),
     groups: A(O({ key: S(100), before: A(OBSERVED, 100), fields: A(OBSERVED, 100) }, ['key', 'fields']), 30) }, ['application_id', 'plan_hash', 'session_id', 'portal_url', 'page_fingerprint', 'observed_at', 'groups']));
 tool('recover', '比较原值、目标值和当前值，恢复草稿但不覆盖用户新修改', O({ application_id: S(100), fields: A(OBSERVED, 1000) }), true);
 tool('review', '基于保存的真实回读生成最终审核包，最终由用户提交', O({ application_id: S(100), portal_url: S(3000), controls:A(CONTROL,1000),single_submit:B,persistence_ref:S(1000) },['application_id','portal_url']));

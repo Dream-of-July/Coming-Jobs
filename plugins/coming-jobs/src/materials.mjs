@@ -55,24 +55,26 @@ export function assertCompleteness(store, material) {
     const text = normalizeText(material.text_evidence.text);
     assert(base.items.every(item => text.includes(normalizeText(item.text))), 'resume_incomplete', '简历缺少基线中的经历、成果、获奖或链接；先补齐并审核。');
 }
+function materialEvidence(store,m){
+ const inherited=m.asset?store.get('material_approval',m.asset.sha256,false)?.evidence??[]:[];
+ return [...new Map([...inherited,...(m.evidence??[])].map(e=>[e.id+':'+e.digest,e])).values()];
+}
 export function assertMaterialCurrent(store, m) {
     assertCompleteness(store, m);
-    if (!m.evidence)
-        return;
     const current = new Map(facts(store, 'resume').map(f => [f.id, f]));
-    assert(m.evidence.every(e => current.has(e.id) && hash(current.get(e.id).value) === e.digest), 'material_evidence_changed', '简历引用的事实已更正、撤回或过期。', '只更新受影响内容并重新审核，不能沿用旧授权。');
+    assert(materialEvidence(store,m).every(e => current.has(e.id) && hash(current.get(e.id).value) === e.digest), 'material_evidence_changed', '简历引用的事实已更正、撤回或过期。', '只更新受影响内容并重新审核，不能沿用旧授权。');
 }
 export function materialApproved(store,m) {
  if(!m?.asset)return false;
  const approval=store.get('material_approval',m.asset.sha256,false);
- if(!approval)return !!m.approved;
  const fs=new Map(facts(store,'resume').map(f=>[f.id,f]));
- return approval.state==='approved'&&(approval.evidence??[]).every(e=>fs.has(e.id)&&hash(fs.get(e.id).value)===e.digest);
+ return (approval?approval.state==='approved':!!m.approved)&&materialEvidence(store,m).every(e=>fs.has(e.id)&&hash(fs.get(e.id).value)===e.digest);
 }
 export function approveMaterial(store,m,userRef,qa={visual:true,content:true,text:'pass'}) {
  store.assetPath(m.asset);assertMaterialCurrent(store,m);
- store.put('material_approval',m.asset.sha256,{sha256:m.asset.sha256,state:'approved',evidence:m.evidence??[],approval_ref:userRef,approved_at:now()});
- return store.put('material',m.id,{...m,approved:true,qa,approval_ref:userRef,approved_at:now()});
+ const evidence=materialEvidence(store,m);
+ store.put('material_approval',m.asset.sha256,{sha256:m.asset.sha256,state:'approved',evidence,approval_ref:userRef,approved_at:now()});
+ return store.put('material',m.id,{...m,evidence,approved:true,qa,approval_ref:userRef,approved_at:now()});
 }
 export function materialAction(store, a) {
     if (['template_baseline','claim_propose','claim_approve','compose'].includes(a.operation)) return claimAction(store,a);
@@ -177,7 +179,8 @@ export function materialAction(store, a) {
         const sameBytes = (old?.approved && old.kind === a.kind && old.asset?.sha256 === asset.sha256) || materialApproved(store,{asset,kind:a.kind});
         if (sameBytes && old) assertMaterialCurrent(store, old);
         const job = a.job_id ? store.get('job', a.job_id) : old?.job_id ? store.get('job', old.job_id) : null;
-        return store.put('material', old?.id ?? hash([a.kind, asset.sha256, job?.id]), { ...old, kind: a.kind, asset,
+        const evidence=materialEvidence(store,{...old,asset});
+        return store.put('material', old?.id ?? hash([a.kind, asset.sha256, job?.id]), { ...old, kind: a.kind, asset,evidence,
             job_id: job?.id ?? null, job_hash: job?.content_hash ?? null, template: old?.template ?? a.template ?? 'classic', approved: !!sameBytes,
             route: old?.content ? 'generated' : 'user_pdf', source_ref: a.user_ref, created_at: old?.created_at ?? now() });
     }

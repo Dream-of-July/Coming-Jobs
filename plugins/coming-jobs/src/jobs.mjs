@@ -139,7 +139,7 @@ export function shortlist(store, a) {
     const existing = store.get('batch', key, false);
     if (existing && !a.refresh)
         return existing;
-    const applied = new Set(store.all('application').map(x => x.job_id));
+    const applied = new Set(store.all('application').filter(x=>x.stage!=='voided').map(x => x.job_id));
     const intentTracks = facts(store, 'matching').find(f => f.key === 'intent.tracks')?.value;
     const scopeJobs = store.all('job').filter(j => (!a.campaign || j.campaign === a.campaign) && j.state === 'open' && j.mode === (a.mode ?? 'live') &&
         (!companiesScope.length || companiesScope.some(c => c.toLowerCase() === j.company.toLowerCase())) &&

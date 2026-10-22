@@ -110,10 +110,10 @@ function nextTaskSingle(store, runId, blocked = new Set(), allocationSlots) {
         }
     }
     const readyIds = new Set(buildReport(store, run).cards.map(c => c.company_id));
-    let readyCount = 0;
+    let readyCount = 0,reachedTarget=false;
     for (const { company, scopes } of ordered) {
         if (readyIds.has(company.id)) {
-            if (++readyCount >= c.target_companies) return { task: null, budget: b, next: '有效待办已补足，report 保存今日结果，无需继续深读新公司。' };
+            if (++readyCount >= c.target_companies){reachedTarget=true;break;}
             continue;
         }
         if (!b.companies.includes(company.id) && b.companies.length >= c.company_limit) continue;
@@ -140,6 +140,20 @@ function nextTaskSingle(store, runId, blocked = new Set(), allocationSlots) {
             }
         }
     }
+    // Unreferenced new evidence does not block current selections. Refresh it only
+    // with the remaining daily assessment/company budget, after urgent gaps.
+    for(const {company,scopes} of ordered){
+        if(!b.companies.includes(company.id)&&b.companies.length>=c.company_limit)continue;
+        for(const scope of scopes){
+            if(blocked.has(`${company.id}:${scopeKey(scope)}`)||!scopeReady(store,run,company,scope))continue;
+            const priorJobs=new Set(store.all('daily_task').filter(t=>t.run_id===run.id&&t.kind==='assess').flatMap(t=>t.job_ids??[]));
+            const jobs=scopedJobs(store,company,scope,run.mode).jobs.filter(j=>!priorJobs.has(j.id)&&validAssessment(store,j)?.soft_stale),available=c.assessment_limit-b.assessed;
+            if(!jobs.length||available<=0)continue;
+            const slice=jobs.slice(0,Math.min(10,available)),task=reserve(store,run,{kind:'assess',reason:'soft_stale_refresh',company_id:company.id,scope,job_ids:slice.map(j=>j.id),job_hashes:slice.map(j=>j.content_hash)},{companies:[...new Set([...b.companies,company.id])],assessed:b.assessed+slice.length});
+            return {task:presentationTask(store,task),budget:budget(store,run)};
+        }
+    }
+    if(reachedTarget)return {task:null,budget:b,next:'有效待办已补足，report 保存今日结果，无需继续深读新公司。'};
     if (b.expanded < c.expansion_limit && !store.all('daily_task').some(t => t.run_id === run.id && t.kind === 'expand') && !blocked.has('kind:expand')) {
         const task = reserve(store, run, { kind: 'expand' }, { expanded: b.expanded + 1 });
         return { task: presentationTask(store, task), budget: budget(store, run) };

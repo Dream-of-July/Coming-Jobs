@@ -41,7 +41,7 @@ export function renderMaterial(store,m){
  assert(m.template_baseline_hash===baseline.content_hash,'stale_baseline','组装引用的基线已变化。');
  const data=m.template_data,expected=expectedText(data,config.text_paths),cacheKey=hash([hash(readFileSync(new URL('./render-worker.mjs',import.meta.url))),config.script_hash,config.function_hash,config.assets,data,expected]);
  const cached=store.get('render_receipt',cacheKey,false);
- if(cached){store.assetPath(cached.asset);assert(existsSync(cached.screenshot),'render_cache_missing','渲染缓存截图不存在，重新生成后审批。');return {...cached,cache_hit:true};}
+ if(cached){try{store.assetPath(cached.asset);if(existsSync(cached.screenshot)&&hash(readFileSync(cached.screenshot))===cached.screenshot_hash)return {...cached,cache_hit:true};}catch{/* Missing or damaged derived artifacts are cache misses. */}}
  const executable=browserExecutable();assert(executable,'browser_unavailable','未找到 Chrome 或 Chromium，无法离线渲染。');
  const dir=path.join(store.home,'renders',cacheKey);mkdirSync(dir,{recursive:true,mode:0o700});
  const pdf=path.join(dir,assertExternalFilename(m.external_name??'resume.pdf')),screenshot=path.join(dir,'preview.png');
@@ -50,6 +50,6 @@ export function renderMaterial(store,m){
  assert(result.status===0,'renderer_failed','离线 Chrome 渲染失败。', '检查 Chrome 是否可启动、模板能否离线加载；保留当前草稿。', {exit:result.status});
  let receipt;try{receipt=JSON.parse(result.stdout);}catch{assert(false,'renderer_failed','渲染回执不是完整 JSON。');}
  const pdfBytes=readFileSync(pdf);validateRender(receipt,expected,pdfBytes);
- const asset=store.asset(pdf,dir);const out={...receipt,cache_key:cacheKey,asset,screenshot,script_hash:config.script_hash,function_hash:config.function_hash,asset_hashes:config.assets.map(a=>a.sha256),input_hash:hash(data),text_hash:hash(receipt.text),approved_source_hash:baseline.content_hash,passed:true,generated_at:now()};
+ const asset=store.asset(pdf,dir);const out={...receipt,cache_key:cacheKey,asset,screenshot,screenshot_hash:hash(readFileSync(screenshot)),script_hash:config.script_hash,function_hash:config.function_hash,asset_hashes:config.assets.map(a=>a.sha256),input_hash:hash(data),text_hash:hash(receipt.text),approved_source_hash:baseline.content_hash,passed:true,generated_at:now()};
  return store.transaction(()=>store.put('render_receipt',cacheKey,out));
 }

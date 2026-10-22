@@ -30,14 +30,14 @@ Failed probe attempts: sandbox git fetch DNS failure (succeeded after network pe
 ## Execution ledger
 
 - Phase 0: probe conclusions recorded; baseline/integration validation passed: 351/351; public check 0 findings.
-- Phase 1: implemented — public schemas, host policy, hooks, workers, scheduling, response budget.
-- Phase 2: pending — manifests/version, dual installer, CLI registration and smoke checks.
-- Phase 3: pending — dependency-based validity, structured fit questions and target approval.
-- Phase 4: pending — hash approvals, claims/composition, offline Chrome renderer/receipts/cache.
-- Phase 5: pending — source transformations, parsing/persistence checks, read-only Claude procedure.
-- Phase 6: pending — transactional batch grants, human queue, guarded submit, outcomes and voided.
-- Phase 7: pending — read-only migration plan, synthetic migrate/revert coverage; never execute real migrate.
-- Phase 8: pending — two-host end-to-end tests, docs, review, install smoke, branch push and PR to main depending on #2/#3.
+- Phase 1: complete — public schemas, host policy, hooks, workers, scheduling, response budget.
+- Phase 2: complete — manifests/version, dual installer, isolated CLI registration and smoke checks.
+- Phase 3: complete — dependency-based validity, structured fit questions and target approval.
+- Phase 4: complete — hash approvals, claims/composition, offline Chrome renderer/receipts/cache.
+- Phase 5: complete — source transformations, parsing/persistence checks, read-only Claude procedure.
+- Phase 6: complete — transactional batch grants, human queue, guarded submit, outcomes and voided.
+- Phase 7: complete — read-only migration plan, synthetic migrate/revert coverage; real migrate never executed.
+- Phase 8: implementation/review/install/verification complete; branch publication in progress. PR targets main and depends on #2/#3.
 
 ## Interface decisions
 
@@ -98,3 +98,26 @@ Fixed Codex worker sample was evaluated against the actual prerequisite module a
 Phase 8 final pre-review verification: 414/414 tests (351 inherited + 63 added), zero skips/failures; public check clear; syntax and diff whitespace checks pass. Dashboard interpolation first failed node --check, then a new regression and quote fix verified it. Isolated --host both --skip-cli install: both actual generated configs initialize, list 23 tools, call context, and run hooks. Installed Claude plugin validate passed; actual isolated Claude /mcp connects with object schemas; temporary CODEX_HOME accepts the complete dual-manifest marketplace. User host settings and the other checkout remain unchanged. Optional three-portal browser QA passed for both hosts. CI matrix is configured, not yet claimed as remotely passed.
 
 Additional boundary checks fixed host-access receipt isolation and oversized Claude error JSON. All verification logs remain in temporary scratch space; candidate data and test artifacts are not committed. Detailed Phase 0 probe limitations remain above.
+
+## Independent review and repair
+
+A separate read-only reviewer examined 7b400f7..61f5b34 without modifying the checkout or reading the real workspace. It confirmed 10 Important findings and 2 Minor findings. All are addressed in one repair pass, with synthetic regressions; there was no second review loop.
+
+- Optional fields must match approved values; an optional flag no longer permits a mismatched submission. Unknown optional payload controls need a known empty value or the exact parsed value disclosed in the sheet.
+- Actual field/attachment/control observation age is checked, not just review creation time. Aggregating several execution chunks preserves the oldest observation; fallback inventory carries its own timestamp.
+- Scoped reapproval retains unchanged items with their original code, mode and expiry.
+- Template composition uses an explicit editable-path structure; unknown paths stay fixed, including common experience title/organization/period/icon variants.
+- Same-SHA PDF reuse carries canonical evidence dependencies; later approval cannot erase them.
+- Comparison reads reproject qualifications from current fit context, including current action guards on immutable sealed snapshots. Daily soft-stale refresh uses only remaining budget and does not invalidate current selection.
+- Legacy migration requires unchanged historical intent timing as well as unchanged cited evidence; absent proof means reassessment.
+- Claude readback is scoped to planned ordinary fields and excludes authentication metadata patterns including id/placeholder/autocomplete. Unscoped scripts return metadata only.
+- Single-submit evidence is carried through upload and final review. The synthetic browser portal now has no save button and rejects /save; it completes with zero saves.
+- Selection warnings compare actual differences, and missing/damaged screenshots are regenerated as cache misses.
+
+New review regressions first failed (11/11 initially; two additional timing regressions also failed before their fixes). They now pass 15/15, including pausing a changed retained item without blocking another item's scoped approval. A further migration-code regression failed, then passed after binding the code to the actual recovery decisions, not just record revisions. The missing-screenshot integration assertion also first failed with render_cache_missing, then passed after cache regeneration. The first full repair run passed 426/426; a final run includes the added timing/scope/migration regressions. Both updated three-portal browser runs pass with actual resume SHAs, including zero saves on the single-submit portal. Claude actions/uploads remain synthetic user simulations.
+
+Additional isolated CLI-enabled installation succeeded for both hosts with cli_registry_ready; neither a user Codex config nor Claude settings file was created. This is registry preparation, not a claim of activation in the user's real host.
+
+Final read-only migration audit supersedes the initial recovery estimate: 10 stale preparing applications, 10 bookkeeping facts, 1 provably recoverable assessment and 3,337 requiring reassessment; current=0, legacy login conflicts=0, structured fit questions=0. The stricter historical-intent proof accounts for the reduced recovery count. Current private plan code M-0216A6; plan and candidate contents stay outside Git. One attempt to reuse an existing output filename failed with EEXIST by design (exclusive file creation); a fresh temporary filename succeeded. No real migrate was called.
+
+Final repair validation: required build-release → npm test → check-public chain passed on Node v24.14.0/macOS: 430/430 tests (351 inherited + 79 new), zero skipped/failed; 151 public files checked with zero findings; diff whitespace clear. A fresh `install --home <temporary> --host both --skip-cli` passed. Both installed MCP configs initialize, list 23 object-schema tools, call context and execute generated hooks; installed Claude plugin validate passed without warnings. Real host settings remain untouched. Actual Claude Desktop upload/browser/scheduling surfaces and the user's real template/portals remain manual rollout checks, not claimed as verified.

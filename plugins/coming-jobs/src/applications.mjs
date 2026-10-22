@@ -124,13 +124,14 @@ export function authorize(store, a) {
         assert(app.authorization.session_id === a.session_id, 'writer_busy', '另一个会话正在填写这份申请。', '在原会话完成或明确交接，禁止两个会话同时写同一页面。');
     return store.put('application', app.id, { ...app, authorization: grant, handoff: null });
 }
-export function verifyField(target, observed) {
+export function verifyField(target, observed, persistence=null) {
     if (target.manual)
         return { ok: true, manual: true };
     if (!observed || observed.read_state === 'unreadable')
         return { ok: false, reason: '未观察到该字段' };
     if (target.type === 'file_upload') {
-        const phases = target.attachment_protocol !== 'complete' || observed.file_selected === true && observed.parse_complete === true && observed.attachment_associated === true && observed.portal_saved === true;
+        const persisted=observed.portal_saved===true||persistence?.single_submit===true&&!!persistence.persistence_ref&&observed.portal_saved!==false;
+        const phases = target.attachment_protocol !== 'complete' || observed.file_selected === true && observed.parse_complete === true && observed.attachment_associated === true && persisted;
         const ok = phases && observed.upload_complete === true && observed.local_sha256 === target.material.sha256 &&
             observed.file_name === target.material.name && observed.file_bytes === target.material.bytes && observed.file_count >= 1 && observed.portal_saved !== false;
         return { ok, reason: ok ? '本地文件选择与上传卡片相符；未声称远端字节哈希验证' : '附件未完成或文件身份不符' };
@@ -151,6 +152,7 @@ export function checkpoint(store, a) {
     assert(app.authorization && app.authorization.session_id === a.session_id && Date.parse(app.authorization.expires_at) > Date.now(), 'approval_required', '缺少本次填写的适用授权。');
     assert(applicationOrigin(app, a.portal_url) === plan.origin, 'origin_changed', '页面已跳转到不同接收方，暂停写入。');
     assert(Date.parse(iso(a.observed_at)) <= Date.now() + 300000, 'future_observation', '回读时间不能在未来。');
+    if(a.single_submit){assert(a.persistence_ref&&a.portal_saved!==false,'persistence_evidence_required','无暂存入口时记录实际单次提交页面证据，不能把保存失败当作已保存。');noSecrets(a.persistence_ref);}
     const updated = [];
     for (const group of a.groups) {
         noSecrets(group.before ?? []);
@@ -159,14 +161,14 @@ export function checkpoint(store, a) {
         const allowed = coveredFields(app, plan);
         assert(target.fields.every(f => f.manual || allowed.includes(f.key)), 'approval_required', '此区域有尚未授权的变化，先继续其他已授权区域。');
         group.fields.forEach(f => { assert(target.fields.some(t => t.key === f.key), 'unknown_field', '区域包含未知字段。'); noSecrets(f.value, f.key); });
-        const checks = target.fields.map(f => ({ key: f.key, ...verifyField(f, group.fields.find(o => o.key === f.key)) }));
+        const checks = target.fields.map(f => ({ key: f.key, ...verifyField(f, group.fields.find(o => o.key === f.key),a) }));
         const key = hash([app.id, plan.id, group.key]);
         const prior = store.get('draft', key, false);
         if (prior)
             store.put('draft_history', id('draft'), prior);
         updated.push(store.put('draft', key, { application_id: app.id, plan_id: plan.id, group_key: group.key,
             before: prior?.before ?? group.before ?? [], target: target.fields, observed: group.fields, checks,
-            passed: checks.every(c => c.ok), portal_saved: a.portal_saved ?? null, observed_at: iso(a.observed_at), page_fingerprint: a.page_fingerprint }));
+            passed: checks.every(c => c.ok), portal_saved: a.portal_saved ?? null,persistence:a.single_submit?{single_submit:true,persistence_ref:a.persistence_ref}:null, observed_at: iso(a.observed_at), page_fingerprint: a.page_fingerprint }));
     }
     store.put('application', app.id, { ...app, dirty: true, review: null, page: portalLocation(a.portal_url, app.mode === 'demo') });
     return { groups: updated.map(g => ({ key: g.group_key, passed: g.passed, checks: g.checks })), draft_saved: true,
@@ -200,8 +202,9 @@ export function review(store, a) {
     const drafts = store.all('draft').filter(d => d.application_id === app.id && d.plan_id === plan.id);
     const checks = plan.groups.map(g => {
         const d = drafts.find(d => d.group_key === g.key);
-        const required = g.required || plan.required_groups.includes(g.key) || g.fields.some(f => f.required && !f.manual);
-        const pass = !!d?.passed && (d.portal_saved === true || a.single_submit===true && !!a.persistence_ref && d.portal_saved !== false) && Date.now() - Date.parse(d.observed_at) < 15 * 60000;
+        const required = g.required || plan.required_groups.includes(g.key) || g.fields.some(f => !f.manual);
+        const age=Date.now()-Date.parse(d?.observed_at),limit=(app.apply_batch_id?5:15)*60000;
+        const pass = !!d?.passed && (d.portal_saved === true || a.single_submit===true && !!a.persistence_ref && d.persistence?.single_submit===true && !!d.persistence.persistence_ref && d.portal_saved !== false) && age>=-5000&&age<limit;
         return { key: g.key, label: g.label, required, passed: pass, manual: g.fields.filter(f => f.manual).map(f => f.label) };
     });
     const inventory = (plan.checklist ?? []).map(item => ({ ...item, passed: item.state !== 'pending' && !!item.observation_ref && (!item.group_key || checks.some(g => g.key === item.group_key && g.passed)) }));
@@ -211,9 +214,17 @@ export function review(store, a) {
     const batches = store.all('execution_batch').filter(b => b.application_id === app.id && b.plan_id === plan.id);
     if (batches.length) for (const spec of itinerary(plan)) if (!batches.some(b => b.number === spec.number && b.state === 'complete')) inventory.push({key: `batch:${spec.number}`, label: '批次回读或附件阶段未完成', required: true, passed: false});
     const controls=(a.controls??app.portal_inventory??null)?.map(c=>c.type==='agreement'||c.type==='checkbox'&&plan.groups.some(g=>g.fields.some(f=>f.key===c.key&&f.type==='agreement'))?{...c,type:'agreement',text_hash:typeof c.text==='string'?hash(c.text):c.text_hash}:c)??null;
+    const inventory_observed_at=a.controls?now():app.portal_inventory_observed_at??null;
+    if(app.apply_batch_id&&(!inventory_observed_at||Date.now()-Date.parse(inventory_observed_at)>=5*60000||Date.now()-Date.parse(inventory_observed_at)<-5000))inventory.push({key:'controls_freshness',required:true,passed:false,reason:'inventory_stale'});
     if(controls){
         noSecrets(controls);const planned=new Set(plan.groups.flatMap(g=>g.fields).map(f=>f.key));
-        for(const c of controls)if(c.required&&!planned.has(c.key))inventory.push({key:c.key,label:c.label??c.key,required:true,passed:false,reason:'unplanned_required_control'});
+        for(const c of controls){const field=plan.groups.flatMap(g=>g.fields).find(f=>f.key===c.key);if(field&&!field.manual&&field.type!=='file_upload'&&Object.hasOwn(c,'value')&&!verifyField(field,c).ok)inventory.push({key:c.key,label:c.label??c.key,required:true,passed:false,reason:'current_control_changed'});}
+        for(const c of controls)if(!planned.has(c.key)){
+            const parsed=(app.parse_changes??[]).find(p=>p.kind==='portal_parsed'&&p.key===c.key),known=c.read_state==='known'&&Object.hasOwn(c,'value');
+            const empty=known&&(c.value===''||c.value===false||Array.isArray(c.value)&&c.value.length===0);
+            const approvedParsed=known&&parsed&&equal(parsed.value,c.value)&&parsed.selected===c.selected;
+            if(c.required||app.apply_batch_id&&!empty&&!approvedParsed)inventory.push({key:c.key,label:c.label??c.key,required:true,passed:false,reason:c.required?'unplanned_required_control':'unapproved_optional_control'});
+        }
         for(const c of controls.filter(c=>c.type==='agreement')){if(typeof c.text!=='string')inventory.push({key:c.key,required:true,passed:false,reason:'agreement_readback_required'});const field=plan.groups.flatMap(g=>g.fields).find(f=>f.key===c.key&&f.type==='agreement');if(!field||field.text_hash!==c.text_hash)inventory.push({key:c.key,label:c.label??c.key,required:true,passed:false,reason:'agreement_changed'});}
     } else if(app.apply_batch_id)inventory.push({key:'controls',required:true,passed:false,reason:'inventory_required'});
     const blockers = [...checks, ...inventory].filter(g => g.required && !g.passed);
@@ -221,7 +232,8 @@ export function review(store, a) {
     store.assetPath(cv.asset);
     assertMaterialCurrent(store, cv);
     const snapshot = { job: app.job_snapshot, resume: { ...cv }, answers: drafts.map(d => ({ group: d.group_key, fields: d.observed })), plan_hash: plan.content_hash };
-    const result = { ready: blockers.length === 0, checks, checklist: inventory, completeness: plan.checklist?.length ? 'recorded_inventory' : 'legacy_inventory_unverified', control_inventory_verified:!!controls,controls:controls??[],persistence_ref:a.persistence_ref??null,single_submit:a.single_submit??false,portal_persistence: drafts.every(d => d.portal_saved === true) && drafts.length ? 'saved_observed' : 'not_verified', blockers, snapshot_hash: hash(snapshot), snapshot, reviewed_at: now(),
+    const oldest_observed_at=drafts.length?new Date(Math.min(...drafts.map(d=>Date.parse(d.observed_at)))).toISOString():null;
+    const result = { ready: blockers.length === 0, checks, checklist: inventory, completeness: plan.checklist?.length ? 'recorded_inventory' : 'legacy_inventory_unverified', control_inventory_verified:!!controls,controls:controls??[],oldest_observed_at,inventory_observed_at,persistence_ref:a.persistence_ref??null,single_submit:a.single_submit??false,portal_persistence: drafts.every(d => d.portal_saved === true) && drafts.length ? 'saved_observed' : 'not_verified', blockers, snapshot_hash: hash(snapshot), snapshot, reviewed_at: now(),
         final_submit: 'batch_grant_only', manual_notice: '用户亲自处理声明；逐批审批后，仅 clear_submit 放行的项目可点击一次。Agent 不代做测评。' };
     store.put('application', app.id, { ...app, review: result });
     return { ...result, snapshot: undefined };
@@ -284,7 +296,7 @@ export function recordOutcome(store, a) {
         provider_verified: false, actual_resume_sha256:submitted?.resume?.asset?.sha256??app.actual_resume_sha256??null, submitted_material: submitted, dirty: canUpdate ? false : app.dirty, handoff: null,
         observations: [...new Set([...(app.observations ?? []), eventId])], attention: conflict ? 'evidence_conflict' : app.attention ?? null });
     if(attempt)store.put('submit_attempt',attempt.id,{...attempt,state:a.stage==='unknown'?'unknown':'recorded',outcome_ref:a.observation_ref??a.user_ref??null});
-    if(app.apply_batch_id){const batch=store.get('apply_batch',app.apply_batch_id,false),grant=batch?.grant_id?store.get('apply_grant',batch.grant_id,false):null;if(grant?.items.every(i=>!['preparing','unknown'].includes(store.get('application',i.application_id).stage))){store.put('apply_batch',batch.id,{...batch,state:'complete',completed_at:now()});store.put('settings','active_apply_batch',{batch_id:null});}}
+    if(app.apply_batch_id){const batch=store.get('apply_batch',app.apply_batch_id,false),grant=batch?.grant_id?store.get('apply_grant',batch.grant_id,false):null;if(grant?.items.every(i=>!['preparing','unknown'].includes(store.get('application',i.application_id).stage))&&!(batch.paused_items??[]).some(i=>['preparing','unknown'].includes(store.get('application',i.application_id).stage))){store.put('apply_batch',batch.id,{...batch,state:'complete',completed_at:now()});store.put('settings','active_apply_batch',{batch_id:null});}}
     return { application: updated, conflict, verified_by_provider: false, next: '已记录外部观察，不要求内部 checkpoint；后续只读跟踪，不再次投递。' };
 }
 export function applicationContext(store, id) {

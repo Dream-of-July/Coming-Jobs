@@ -8,11 +8,11 @@ export async function startSyntheticPortal({variant='normal',requireOtp=false}={
  const $=s=>document.getElementById(s);
  for(const key of ['name','school','summary']) $(key).addEventListener('change',()=>fetch('/event',{method:'POST',body:key}));
  $('cv').onchange=async()=>{const file=$('cv').files[0];if(!file)return;$('upload').textContent='上传中';$('upload').dataset.complete='false';const r=await fetch('/upload',{method:'POST',headers:{'X-Filename':encodeURIComponent(file.name)},body:file});const result=await r.json();$('upload').textContent=result.ok?result.name+' · 上传完成':'附件拒收';$('upload').dataset.complete=String(result.ok);$('upload').dataset.name=result.name??'';$('upload').dataset.bytes=String(result.bytes??0);if(result.parsed){$('name').value=result.parsed.name;if(!$('parsed_note')){const label=document.createElement('label');label.htmlFor='parsed_note';label.textContent='门户解析备注';const input=document.createElement('input');input.id='parsed_note';document.body.append(label,input);}$('parsed_note').value=result.parsed.note;}};
- $('save').onclick=async()=>{$('status').textContent='暂存中';const data={name:$('name').value,school:$('school').value,summary:$('summary').value};const r=await fetch('/save',{method:'POST',body:JSON.stringify(data)});const result=await r.json();if(result.clear){$('summary').value='';$('upload').dataset.complete='false';$('upload').textContent='附件已消失';}$('status').textContent=result.ok?'已暂存':'暂存失败';};
+ if($('save'))$('save').onclick=async()=>{$('status').textContent='暂存中';const data={name:$('name').value,school:$('school').value,summary:$('summary').value};const r=await fetch('/save',{method:'POST',body:JSON.stringify(data)});const result=await r.json();if(result.clear){$('summary').value='';$('upload').dataset.complete='false';$('upload').textContent='附件已消失';}$('status').textContent=result.ok?'已暂存':'暂存失败';};
  $('submit').onclick=async()=>{const r=await fetch('/submit',{method:'POST',body:JSON.stringify({declaration:$('declaration')?.checked??false,synthetic_otp:$('synthetic_otp')?.value??''})});if(!r.ok){$('status').textContent='需本人完成合成声明或验证码';return;}$('status').textContent='合成结果：已提交';if(${JSON.stringify(variant)}==='result')location.href='/result';};
  fetch('/saved').then(r=>r.json()).then(v=>{for(const k of ['name','school','summary'])if(v[k]!==undefined)$(k).value=v[k];});
  </script></html>`;
- if(variant==='single_submit')html=html.replace('<button id="submit">','<label for="declaration">合成诚信承诺书（本人处理）</label><input id="declaration" type="checkbox" required>'+ (requireOtp?'<label for="synthetic_otp">合成验证码（本人输入）</label><input id="synthetic_otp" autocomplete="off">':'')+'<button id="submit">');
+ if(variant==='single_submit')html=html.replace('<button id="save">暂存资料</button>','').replace('<button id="submit">','<label for="declaration">合成诚信承诺书（本人处理）</label><input id="declaration" type="checkbox" required>'+ (requireOtp?'<label for="synthetic_otp">合成验证码（本人输入）</label><input id="synthetic_otp" autocomplete="off">':'')+'<button id="submit">');
  const server=http.createServer(async(req,res)=>{
   res.setHeader('Cache-Control','no-store');
   if(req.method==='GET'&&req.url==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(html);return;}
@@ -25,6 +25,7 @@ export async function startSyntheticPortal({variant='normal',requireOtp=false}={
    if(state.mode==='reject'){res.writeHead(415);res.end(JSON.stringify({ok:false}));return;}
    state.attachment={name:decodeURIComponent(req.headers['x-filename']??'unknown'),bytes:body.length,sha256:createHash('sha256').update(body).digest('hex')};res.end(JSON.stringify({ok:true,...state.attachment,...(variant==='parsing_overwrite'?{parsed:{name:'合成解析姓名',note:'合成解析补充'}}:{})}));
   }else if(req.url==='/save'){
+   if(variant==='single_submit'){res.writeHead(404);res.end(JSON.stringify({ok:false,no_draft_save:true}));return;}
    state.saves++;if(state.mode==='save-fail'){res.writeHead(500);res.end(JSON.stringify({ok:false}));return;}
    state.saved=JSON.parse(body.toString());if(state.mode==='clear'){state.saved.summary='';state.attachment=null;}
    res.end(JSON.stringify({ok:true,clear:state.mode==='clear'}));

@@ -4316,6 +4316,15 @@
           },
           "maxItems": 100
         },
+        "editable_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "maxItems": 200
+        },
         "confirmed": {
           "type": "boolean"
         },
@@ -5164,6 +5173,14 @@
         "portal_saved": {
           "type": "boolean"
         },
+        "single_submit": {
+          "type": "boolean"
+        },
+        "persistence_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
         "controls": {
           "type": "array",
           "items": {
@@ -5190,6 +5207,38 @@
                 "maxLength": 100
               },
               "required": {
+                "type": "boolean"
+              },
+              "value": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 40000
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    "maxItems": 100
+                  }
+                ]
+              },
+              "read_state": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unreadable"
+                ]
+              },
+              "selected": {
                 "type": "boolean"
               },
               "text_hash": {
@@ -5732,6 +5781,38 @@
                 "maxLength": 100
               },
               "required": {
+                "type": "boolean"
+              },
+              "value": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 40000
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    "maxItems": 100
+                  }
+                ]
+              },
+              "read_state": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unreadable"
+                ]
+              },
+              "selected": {
                 "type": "boolean"
               },
               "text_hash": {

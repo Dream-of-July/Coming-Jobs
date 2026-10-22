@@ -43,7 +43,7 @@ function currentItem(store,b,app,number){
  const manual=plan?.groups.flatMap(g=>g.fields.filter(f=>f.manual).map(f=>({key:f.key,label:f.label,required:f.required})))??[];
  const item={number,application_id:app.id,company:app.company,title:app.title,job_id:job.id,job_hash:job.content_hash,job_url:job.url,origin:plan?.origin??null,plan_hash:plan?.content_hash??null,
    fields,agreements,manual,parsed:(app.parse_changes??[]).filter(c=>c.kind==='portal_parsed'),resume:m?.asset?{sha256:m.asset.sha256,name:m.asset.name,bytes:m.asset.bytes,height_pt:m.render_receipt?.height_pt??null,screenshot:m.render_receipt?.screenshot??null,headline:m.composition?.headline??m.content?.headline??'',summary:m.composition?.summary??'',selection_paths:m.composition?.selection_paths??[]}:null,
-   gates_digest:hash(assessment?.hard_gates??[]),rules:{limit:quota.remaining===null?null:quota.remaining+quota.used,can_change:quota.can_change??null,order:quota.volunteer_order??null,deadline:quota.deadline??null,source:quota.rule_source_ref??null},
+   selection_claims:m?.composition?.selection_claims??[],gates_digest:hash(assessment?.hard_gates??[]),rules:{limit:quota.remaining===null?null:quota.remaining+quota.used,can_change:quota.can_change??null,order:quota.volunteer_order??null,deadline:quota.deadline??null,source:quota.rule_source_ref??null},
    blockers,warnings:[...(m?.composition?.warnings??[]),...(quota.state==='needs_verification'?['agent_refresh_rules']:[])]};
  // Availability timestamps, review time and writer leases are refreshed by the agent.
  item.fingerprint=hash({application_id:item.application_id,job_id:item.job_id,job_hash:item.job_hash,job_url:item.job_url,origin:item.origin,plan_hash:item.plan_hash,fields:item.fields,agreements:item.agreements,manual:item.manual,parsed:item.parsed,resume:item.resume,gates_digest:item.gates_digest,rules:item.rules});
@@ -53,7 +53,8 @@ function sheet(store,b,issued=now(),applicationId=null){
  const issuedMs=Date.parse(issued);assert(Number.isFinite(issuedMs)&&issuedMs<=Date.now()+5000,'invalid_sheet_time','审批单时间无效。');
  let items=batchApps(store,b).filter(a=>a.stage==='preparing').map(app=>currentItem(store,b,app,b.application_ids.indexOf(app.id)+1));
  if(applicationId)items=items.filter(i=>i.application_id===applicationId);
- for(const item of items){const a=new Set(item.resume?.selection_paths??[]);if(items.some(other=>other!==item&&new Set([...a,...(other.resume?.selection_paths??[])]).size<3))item.warnings.push('selection_difference_below_3');}
+ const selections=item=>new Map(item.selection_claims.length?item.selection_claims.map(c=>[c.path,c.digest]):(item.resume?.selection_paths??[]).map(p=>[p,p]));
+ for(const item of items){const a=selections(item);if(items.some(other=>{if(other===item)return false;const b=selections(other);return [...new Set([...a.keys(),...b.keys()])].filter(p=>a.get(p)!==b.get(p)).length<3;}))item.warnings.push('selection_difference_below_3');}
  const content_hash=hash(items.map(i=>[i.application_id,i.fingerprint]));
  const code='S-'+hash([b.id,b.sheet_nonce,issued,content_hash]).slice(0,6).toUpperCase();
  return {batch_id:b.id,code,issued_at:issued,expires_at:new Date(issuedMs+2*3600000).toISOString(),items,content_hash,
@@ -100,11 +101,26 @@ export function applyBatch(store,a){
   const quotas=new Map();for(const item of items){const job=store.get('job',item.job_id),key=hash([job.company,job.track,job.campaign]),q=jobOpportunity(store,job);quotas.set(key,{count:(quotas.get(key)?.count??0)+1,q});}
   assert([...quotas.values()].every(({count,q})=>q.state==='available'&&q.remaining!==null&&q.remaining>=count),'opportunity_unverified','先刷新官方规则与名额，不需要重复询问适配。');
   const deadline=Math.min(Date.now()+12*3600000,...items.flatMap(i=>[store.get('job',i.job_id).deadline,i.rules.deadline]).filter(Boolean).map(Date.parse));assert(deadline>Date.now(),'campaign_closed','批次已超过截止时间。');
-  const old=liveGrant(store,b);if(old?.state==='active')store.put('apply_grant',old.id,{...old,state:'superseded'});
-  const grant=store.put('apply_grant',id('grant'),{batch_id:b.id,session_id:a.session_id,host:currentHost().id,state:'active',items,sheet_code:view.code,mode:mode(store),approved_ref:a.user_ref,approved_reply:a.reply,approved_at:now(),expires_at:new Date(deadline).toISOString()});
+  const old=liveGrant(store,b),approved_at=now(),expires_at=new Date(deadline).toISOString();
+  // A scoped sheet replaces only its own scope. Retained items keep the original
+  // code, mode and expiry; a partial refresh cannot silently extend authority.
+  const retained=[],newPauses=[];
+  if(a.application_id&&old?.state==='active'&&old.session_id===a.session_id&&old.host===currentHost().id)for(const item of old.items){
+   if(item.application_id===a.application_id)continue;const app=store.get('application',item.application_id),authority=item.authorization??old;
+   if(!['preparing','unknown'].includes(app.stage))continue;
+   const expiry=Math.min(Date.parse(old.expires_at),Date.parse(authority.expires_at));let reason=app.stage==='unknown'||expiry>Date.now()?null:'grant_expired';
+   if(!reason&&app.stage==='preparing')try{const current=currentItem(store,b,app,item.number);if(current.fingerprint!==item.fingerprint||current.blockers.length)reason='approved_item_changed';}catch(error){reason=error.code??'item_unverified';}
+   if(reason)newPauses.push({application_id:app.id,reason,paused_at:now()});
+   else retained.push({...item,authorization:{sheet_code:authority.sheet_code,mode:authority.mode,approved_at:authority.approved_at,expires_at:new Date(expiry).toISOString()}});
+  }
+  if(old?.state==='active')store.put('apply_grant',old.id,{...old,state:'superseded'});
+  const approvedItems=items.map(i=>({...i,authorization:{sheet_code:view.code,mode:mode(store),approved_at,expires_at}}));
+  const allItems=[...retained,...approvedItems].sort((a,b)=>a.number-b.number);
+  const grant=store.put('apply_grant',id('grant'),{batch_id:b.id,session_id:a.session_id,host:currentHost().id,state:'active',items:allItems,sheet_code:view.code,mode:mode(store),approved_ref:a.user_ref,approved_reply:a.reply,approved_at,expires_at:new Date(Math.max(...allItems.map(i=>Date.parse(i.authorization.expires_at)))).toISOString()});
   store.put('approval_sheet',hash([b.id,view.code]),{...view,state:'approved',selected_numbers:numbers,user_ref:a.user_ref});
   for(const item of items){const app=store.get('application',item.application_id),m=store.get('material',app.resume_id);approveMaterial(store,m,a.user_ref);for(const field of store.get('plan',app.plan_id).groups.flatMap(g=>g.fields).filter(f=>f.material)){const attachment=store.get('material',field.material.id);assert(attachment.asset.sha256===field.material.sha256,'material_changed','附件已经变化。');approveMaterial(store,attachment,a.user_ref);}authorize(store,{application_id:app.id,plan_hash:app.plan_id,portal_url:item.origin,session_id:a.session_id,confirmed:true,user_ref:a.user_ref});}
-  store.put('apply_batch',b.id,{...b,grant_id:grant.id,paused_items:(b.paused_items??[]).filter(p=>!items.some(i=>i.application_id===p.application_id))});return {grant,approved_numbers:numbers,confirmation_key:'approval:'+grant.id};
+  const paused_items=[...new Map([...(b.paused_items??[]),...newPauses].filter(p=>!items.some(i=>i.application_id===p.application_id)).map(p=>[p.application_id,p])).values()];
+  store.put('apply_batch',b.id,{...b,grant_id:grant.id,paused_items});return {grant,approved_numbers:numbers,confirmation_key:'approval:'+grant.id};
  }
  if(a.operation==='human_queue'){
   let added=0;const steps=a.steps.map(step=>{if(step.application_id)assert(b.application_ids.includes(step.application_id),'human_scope','人工步骤不属于批次。');assert(!step.origin||/^https:\/\//.test(step.origin),'invalid_origin','人工步骤只保存门户来源。');noSecretsReply(step.prompt);const key=hash([b.id,step.application_id??null,step.kind,step.field_key??null,step.origin??null]),old=store.get('human_step',key,false);if(old)return old;added++;return store.put('human_step',key,{...step,batch_id:b.id,state:'open',presented_at:now()});});const status=humanStatus(store,b);return {...status,steps,should_ask:added>0,confirmation_key:'human:'+status.prompt_id};
@@ -128,12 +144,14 @@ export function applyBatch(store,a){
   foreground(store,a);const grant=liveGrant(store,b);assert(mode(store)==='on'&&grant?.mode==='on','submit_disabled','本批次仅预填或恢复人工提交。');
   assert(grant?.state==='active'&&Date.parse(grant.expires_at)>Date.now(),'grant_expired','批次授权已过期或撤销。');assert(grant.session_id===a.session_id&&grant.host===currentHost().id,'batch_session_mismatch','授权不能跨宿主会话使用。');
   assert(app.stage==='preparing','submit_once','该申请已提交或结果不明，不重复点击。');const approved=grant.items.find(i=>i.application_id===app.id);assert(approved,'item_not_approved','该项目没有列入本次批准。');
+  const authority=approved.authorization??grant;assert(authority.mode==='on','submit_disabled','此项目仅获准预填，不能由批次提交。');assert(Date.parse(authority.expires_at)>Date.now(),'grant_expired','此项目的原始批准已过期，局部审批不能延长其他项目授权。');
   assert(!(b.paused_items??[]).some(p=>p.application_id===app.id),'item_paused','变化项已暂停，需要更新计划并重新逐批审批。');
   const current=currentItem(store,b,app,approved.number);assert(current.fingerprint===approved.fingerprint&&!current.blockers.length,'approved_item_changed','该项 JD、资料、来源、协议、简历或资格已变化，暂停此项。');
   const plan=store.get('plan',app.plan_id),m=store.get('material',app.resume_id);assert(materialApproved(store,m)&&m.asset.sha256===approved.resume.sha256,'material_changed','简历哈希与批准内容不一致。');
   assert(plan.groups.flatMap(g=>g.fields).filter(f=>f.material).every(f=>{const live=store.get('material',f.material.id);return materialApproved(store,live)&&live.asset.sha256===f.material.sha256;}),'material_changed','附件哈希已变化或未批准。');
   assert(authorizationState(app,plan).content_authorized&&app.authorization.session_id===a.session_id&&authorizationState(app,plan).lease_active,'approval_required','预填内容或写入租约不匹配。');
-  assert(app.review?.ready&&Math.abs(Date.now()-Date.parse(app.review.reviewed_at))<5*60000,'review_stale','提交前需要五分钟内的完整回读。');assert(app.review.control_inventory_verified,'inventory_required','需要当前页面完整控件清单。');
+  const recent=time=>!!time&&Date.now()-Date.parse(time)>=-5000&&Date.now()-Date.parse(time)<5*60000;
+  assert(app.review?.ready&&recent(app.review.reviewed_at)&&recent(app.review.oldest_observed_at)&&recent(app.review.inventory_observed_at),'review_stale','提交前需要五分钟内的实际字段、附件和控件回读；重新生成审核不能刷新旧观察。');assert(app.review.control_inventory_verified,'inventory_required','需要当前页面完整控件清单。');
   const inventory=app.review.controls,fields=plan.groups.flatMap(g=>g.fields);assert(!inventory.some(c=>c.required&&!fields.some(f=>f.key===c.key)),'unplanned_required_control','出现计划外必填控件。');
   assert(fields.filter(f=>f.type==='agreement').every(f=>inventory.some(c=>c.key===f.key&&c.type==='agreement'&&typeof c.text==='string'&&hash(c.text)===f.text_hash&&c.text_hash===f.text_hash))&&!inventory.some(c=>c.type==='agreement'&&!fields.some(f=>f.key===c.key&&f.text_hash===c.text_hash)),'agreement_changed','当前协议文本与批准范围不一致。');
   const steps=store.all('human_step').filter(h=>h.batch_id===b.id&&(!h.application_id||h.application_id===app.id));assert(!steps.some(h=>['open','done'].includes(h.state)),'human_pending','此项目仍有未核验人工步骤。');assert(fields.filter(f=>f.manual&&f.required).every(f=>steps.some(h=>h.kind==='declaration'&&h.field_key===f.key&&h.state==='verified')),'declaration_pending','声明和承诺书必须由本人处理并回读核验。');
@@ -141,8 +159,8 @@ export function applyBatch(store,a){
   assert(!fields.some(f=>f.type==='file_upload')||app.parse_compared_at,'parse_readback_required','附件解析后尚未回读。');assert(app.review.portal_persistence==='saved_observed'||app.review.single_submit&&app.review.persistence_ref,'portal_not_saved','缺少门户保存或单次提交证据。');
   const quota=jobOpportunity(store,store.get('job',app.job_id));assert(quota.state==='available'&&quota.remaining>0,'opportunity_unverified','名额未核验、已耗尽或规则过期；先刷新。');
   const collection=store.all('collection').find(c=>c.company===app.company&&c.track===app.job_snapshot.track&&c.campaign===app.job_snapshot.campaign&&c.mode===app.mode);assert(collection&&collectionStatus(store,collection).complete&&collectionStatus(store,collection).live_verified,'live_list_stale','先刷新当前官方完整列表，内容未变化不重问。');
-  const attempt=store.put('submit_attempt',id('submit'),{application_id:app.id,batch_id:b.id,grant_id:grant.id,sheet_code:grant.sheet_code,session_id:a.session_id,state:'pending',started_at:now(),actual_resume_sha256:m.asset.sha256,resume:{...m},plan_hash:plan.content_hash,origin:plan.origin,review_snapshot:app.review.snapshot,reviewed_at:app.review.reviewed_at});
-  store.put('application',app.id,{...app,stage:'unknown',submit_attempt_id:attempt.id});return {attempt_id:attempt.id,company:app.company,sheet_code:grant.sheet_code,action:'click_once_then_read_result',action_summary:`${app.company} ${grant.sheet_code} 提交已批准申请`,resume_sha256:m.asset.sha256};
+  const attempt=store.put('submit_attempt',id('submit'),{application_id:app.id,batch_id:b.id,grant_id:grant.id,sheet_code:authority.sheet_code,session_id:a.session_id,state:'pending',started_at:now(),actual_resume_sha256:m.asset.sha256,resume:{...m},plan_hash:plan.content_hash,origin:plan.origin,review_snapshot:app.review.snapshot,reviewed_at:app.review.reviewed_at});
+  store.put('application',app.id,{...app,stage:'unknown',submit_attempt_id:attempt.id});return {attempt_id:attempt.id,company:app.company,sheet_code:authority.sheet_code,action:'click_once_then_read_result',action_summary:`${app.company} ${authority.sheet_code} 提交已批准申请`,resume_sha256:m.asset.sha256};
  }
  assert(a.operation==='abort_submit','invalid_operation','不支持的批次操作。');const attempt=app.submit_attempt_id?store.get('submit_attempt',app.submit_attempt_id):null;
  assert(app.stage==='unknown'&&attempt&&attempt.session_id===a.session_id,'submit_once','仅撤回当前会话的未定提交尝试。');assert(a.draft_not_submitted&&a.observation_ref&&a.job_id===app.job_snapshot.external_id&&new URL(a.portal_url).origin===attempt.origin&&Math.abs(Date.now()-Date.parse(a.observed_at))<300000,'draft_evidence_required','仅官方页面明确显示该岗位仍是未提交草稿时可撤回。');
@@ -162,7 +180,9 @@ export function batchGuidance(store,background=false){
  if(!app.resume_id||!app.plan_id)return next('agent','prepare_materials','准备已批准目标的材料、字段来源和完整计划。');
  if(!grant||grant.state!=='active')return next('agent','build_sheet','生成逐项审批单，将人工步骤合并后一次请求带批次码的批准。');
  if(!grant.items.some(i=>i.application_id===app.id))return next('agent','continue_approved_items','该项目未获批准，保持暂停并推进已批准项目。');
- if(app.review?.ready)return mode(store)==='on'&&grant.mode==='on'?next('agent','clear_submit','调用 clear_submit 重新核验，成功后仅点击一次并只读记录结果。'):next('user','human_submit','预填和回读已完成。按当前模式由本人检查并提交。');
+ const authority=grant.items.find(i=>i.application_id===app.id)?.authorization??grant;
+ if(Date.parse(grant.expires_at)<=Date.now()||Date.parse(authority.expires_at)<=Date.now())return next('agent','build_sheet','此项目的原始批准已过期，生成当前范围审批单，不扩展其他项目授权。');
+ if(app.review?.ready)return mode(store)==='on'&&grant.mode==='on'&&authority.mode==='on'?next('agent','clear_submit','调用 clear_submit 重新核验，成功后仅点击一次并只读记录结果。'):next('user','human_submit','预填和回读已完成。按当前模式由本人检查并提交。');
  const plan=store.get('plan',app.plan_id);if(!authorizationState(app,plan).lease_active)return next('agent','renew_lease','复用现有字段授权续租，不重复询问。');
  return next('agent','fill_groups','连续填写已授权区域，上传后比较解析字段、保存门户并回读，最后生成新鲜 review。');
 }

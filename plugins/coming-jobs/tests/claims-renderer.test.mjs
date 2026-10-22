@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {writeFileSync,readFileSync} from 'node:fs';
+import {writeFileSync,readFileSync,unlinkSync} from 'node:fs';
 import path from 'node:path';
 import {environment,seedApplication,seedJob,seedProfile,simplePDF} from './helpers.mjs';
 import {call} from '../src/service.mjs';
@@ -17,6 +17,7 @@ test('offline Chrome renders synthetic data, compresses icons, and reuses exact 
  e.run('material',{operation:'template_baseline',file:b.file,render_script:b.script,asset_paths:[icon],text_paths:['name','headline','contact','sections.*.title','sections.*.items.*.text'],confirmed:true,user_ref:'Synthetic template'});
  const m=e.run('material',{operation:'compose',job_id:job.id}),r=e.run('material',{operation:'render',material_id:m.id});assert(r.receipt.passed);assert.equal(r.receipt.compressed_icons,1);assert(r.receipt.height_px<500);assert(r.material.asset.bytes<2*1024*1024);assert.equal(r.material.approved,false);
  const second=e.run('material',{operation:'render',material_id:m.id});assert.equal(second.material.asset.sha256,r.material.asset.sha256);assert(second.cache_hit);
+ unlinkSync(second.receipt.screenshot);const restored=e.run('material',{operation:'render',material_id:m.id});assert(restored.receipt.passed);assert(!restored.cache_hit);
  writeFileSync(icon,'changed');assert.equal(call(e.store,'jobos1_material',{operation:'render',material_id:m.id}).error.code,'renderer_pin_changed');
 });
 for(const [variant,expected] of [['extra','render_text_mismatch'],['overflow','render_layout']])test('offline renderer rejects '+variant,async t=>{

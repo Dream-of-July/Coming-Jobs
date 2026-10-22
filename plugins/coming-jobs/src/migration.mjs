@@ -7,6 +7,10 @@ const clean=r=>{if(!r)return null;const {revision,...value}=r;return value;};
 function legacyRecoverable(store,a,job){
  if(a.evidence_digest)return assessmentCurrent(store,a,job);
  if(a.job_hash!==job?.content_hash||!Number.isFinite(Date.parse(a.evaluated_at)))return false;
+ const intents=store.all('fact').filter(f=>factRole(f)==='intent'&&f.purposes?.includes('matching'));
+ // Legacy assessments lack an intent digest. A later/revoked/expired intent is
+ // not repairable by stamping today's intent onto yesterday's judgment.
+ if(!intents.length||intents.some(f=>{const updated=store.db.prepare('SELECT updated_at FROM records WHERE kind=? AND id=?').get('fact',f.id)?.updated_at;return f.state!=='confirmed'||f.expires_at&&Date.parse(f.expires_at)<=Date.now()||!updated||Date.parse(updated)>=Date.parse(a.evaluated_at);}))return false;
  const available=new Map(facts(store,'matching').map(f=>[f.id,f]));
  return evidenceIds(a).length>0&&evidenceIds(a).every(k=>{const f=available.get(k),updated=store.db.prepare('SELECT updated_at FROM records WHERE kind=? AND id=?').get('fact',k)?.updated_at;return f&&updated&&Date.parse(updated)<=Date.parse(a.evaluated_at);});
 }
@@ -20,7 +24,7 @@ export function migrationPlan(store){
  for(const a of assessments){const job=store.get('job',a.job_id??a.id,false);if(job&&assessmentCurrent(store,a,job))current.push(a.id);else if(job&&legacyRecoverable(store,a,job))recoverable.push(a.id);else reassess.push(a.id);}
  const questions=new Map();for(const a of assessments)for(const gate of a.hard_gates??[])if(gate.status==='unknown'&&gate.criterion){const kind=gate.criterion.kind,ids=questions.get(kind)??new Set();ids.add(a.job_id??a.id);questions.set(kind,ids);}
  const fit_questions=[...questions].slice(0,5).map(([kind,ids])=>({kind,affected_jobs:ids.size}));
- const code='M-'+hash([store.workspace,apps.map(a=>[a.id,a.revision]),fs.map(f=>[f.id,f.revision]),assessments.map(a=>[a.id,a.revision]),void_candidates.map(a=>a.id)]).slice(0,6).toUpperCase();
+ const code='M-'+hash(['migration-v2',store.workspace,apps.map(a=>[a.id,a.revision]),fs.map(f=>[f.id,f.revision]),assessments.map(a=>[a.id,a.revision]),void_candidates,bookkeeping,login_decisions,fit_questions,current,recoverable,reassess]).slice(0,6).toUpperCase();
  return {code,read_only:true,void_candidates,bookkeeping,login_decisions,assessments:{current:current.length,recoverable:recoverable.length,reassess:reassess.length,recoverable_ids:recoverable},fit_questions,
   summary:{void_candidates:void_candidates.length,bookkeeping:bookkeeping.length,login_decisions:login_decisions.length,current:current.length,recoverable:recoverable.length,reassess:reassess.length,fit_questions:fit_questions.length},
   next:`审阅清单后回复“批准 ${code}”；有登录策略冲突时逐项选择。真实工作区本次仅生成此清单，不执行迁移。`};
