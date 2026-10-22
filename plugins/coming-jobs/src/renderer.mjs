@@ -47,7 +47,8 @@ export function renderMaterial(store,m){
  const pdf=path.join(dir,assertExternalFilename(m.external_name??'resume.pdf')),screenshot=path.join(dir,'preview.png');
  const input={executable,fn:inputs.fn,assets:inputs.assets,data,locale:'zh-cn',pdf,screenshot};
  const result=spawnSync(process.execPath,[fileURLToPath(new URL('./render-worker.mjs',import.meta.url))],{input:JSON.stringify(input),encoding:'utf8',timeout:40000,maxBuffer:1024*1024});
- assert(result.status===0,'renderer_failed','离线 Chrome 渲染失败。', '检查 Chrome 是否可启动、模板能否离线加载；保留当前草稿。', {exit:result.status});
+ let diagnostic=null;try{const d=JSON.parse(result.stderr);if(/^(?:browser_start|page_setup|template|document|layout|pdf|screenshot)$/.test(d.stage)&&/^(?:sandbox_unavailable|render_timeout|browser_launch|browser_exit|browser_pipe|browser_protocol|cdp_command|page_evaluation|render_failed)$/.test(d.reason))diagnostic={stage:d.stage,reason:d.reason,method:/^[A-Za-z]+\.[A-Za-z]+$/.test(d.method)?d.method:null};}catch{}
+ assert(result.status===0,'renderer_failed','离线 Chrome 渲染失败。'+(diagnostic?`（${diagnostic.stage}: ${diagnostic.reason}${diagnostic.method?' / '+diagnostic.method:''}）`:''), diagnostic?.reason==='sandbox_unavailable'?'修复宿主的 Chrome 沙箱权限后重试；不关闭浏览器沙箱。':'检查 Chrome 是否可启动、模板能否离线加载；保留当前草稿。', {exit:result.status});
  let receipt;try{receipt=JSON.parse(result.stdout);}catch{assert(false,'renderer_failed','渲染回执不是完整 JSON。');}
  const pdfBytes=readFileSync(pdf);validateRender(receipt,expected,pdfBytes);
  const asset=store.asset(pdf,dir);const out={...receipt,cache_key:cacheKey,asset,screenshot,screenshot_hash:hash(readFileSync(screenshot)),script_hash:config.script_hash,function_hash:config.function_hash,asset_hashes:config.assets.map(a=>a.sha256),input_hash:hash(data),text_hash:hash(receipt.text),approved_source_hash:baseline.content_hash,passed:true,generated_at:now()};

@@ -1,7 +1,7 @@
 {
   "version": "1.0.0-beta.16",
   "contract": "jobos/1",
-  "build": "90bf4798978ecf4f399641339f0fa3acf3fab3239522fd2b9f2cf28f032e8cef",
+  "build": "5c2b4c8c9e46934dadff4f470daa6b259506dce8fab2779270485cfae845323e",
   "files": {
     ".claude-plugin/plugin.json": "bc107652cb814a9d6d02b0fa02f0946a02cd152d7da1c4816d9460a7d2b55143",
     ".codex-plugin/plugin.json": "d46456c9b4e652cb58c8f46584216992b8aa3baefe5d01590e30afda053e389d",
@@ -60,8 +60,8 @@
     "src/policy.mjs": "d0012d620555ec386412cb09aa5bc94e722c44581fb428f29b2a871227ee714c",
     "src/profile.mjs": "834cd522ac433eb11c304305ea042d452b77614fd485758de138620ce3a6c0f0",
     "src/progress.mjs": "c4422a44c5e2d2fe7b42eb5fc36c6c0f41890d8b26f164f44d0c27d2905b41db",
-    "src/render-worker.mjs": "4e5190fe85d372b030e0f54e447effb82161af0e706e6e5ae1ad2c557e278adb",
-    "src/renderer.mjs": "5a8b0edc1960e32d8775431819831b065acb0eb58d2cac85a9f6b5ef41a617fd",
+    "src/render-worker.mjs": "4e1e77b661529529d2beb91066fd16a1bd31f762138ddc5c8f87f998a4366337",
+    "src/renderer.mjs": "5e7d118f6e840a3a6405f0fc1a3c12caddf783f685a9eef19d4bb0ec16d2b726",
     "src/service.mjs": "f9d8cc1bdf00db90d9291a799d658a5fb463c2f0580b1ff20aa529e6feeadf3c",
     "src/store.mjs": "ac01b09cb125208c9be52e3e187489402426767f45f8f7fc3b461e2b24db7f42",
     "src/tasks.mjs": "3892fa3c05e923ee80b1ca5e6cb012a847b31a41a2eb133d15eb4203be81b13e",
@@ -95,6 +95,7 @@
     "tests/material-index.test.mjs": "523dcba0f0dde74f997d483bdac11deaaada1268bf47e63a18e3d1b46004d124",
     "tests/migration.test.mjs": "10311713b90b6433fa37918fd0167df21f2152a190b7d23f7e472f68b6be79ce",
     "tests/regressions.test.mjs": "ec5d6be9e5b71fec3c217154665144d80d718e5d62e38f06e5b902d4b21fb1c6",
+    "tests/renderer-diagnostics.test.mjs": "12a90cd9dcd4caea76b789577a94c5a9158422914ff5d0eb403043e0f441edf5",
     "tests/review-regressions.test.mjs": "28ebab5722a0c40c87306881354e3ec3a2834b5f6e478930d2d416d595d5503f",
     "tests/submit-safety.test.mjs": "e7758cf80f6a19f5bface714420a556d5e7c9ddf43b20a721da4f1657012af30",
     "tests/tasks.test.mjs": "69601a1a515e23afcc11c38cc3c79e9c2f459435e062babfa4620a29778d5b61",
