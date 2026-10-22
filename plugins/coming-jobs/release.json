@@ -1,7 +1,7 @@
 {
   "version": "1.0.0-beta.14",
   "contract": "jobos/1",
-  "build": "51230b79af12376661c41e8955d4afd3dea48926090925585fc46a6484517d20",
+  "build": "ecd6ef6a2b240b9dca064e19fc9d179f29aeecef93032eef70dac8faa669f751",
   "files": {
     ".codex-plugin/plugin.json": "c83ed1fbe8553fb96550c8f4b5f63711c2c05ae477fafd5bbe6498007643d4c3",
     "docs/COLLECTORS.md": "84ef6bde57e8eb89ae93d1e5fe21be876e1ff0bf58b9c166b635ac573204170f",
@@ -17,7 +17,8 @@
     "skills/jobos/references/execution.md": "246a6ae46d2fdc8add07d96647ce38a53b99f3be6d2b56d92913c14f95c0ae2e",
     "skills/jobos/references/fit-assessment.md": "491455bbb0b3288b0d5844a30da0775bb4da66f37f49da1dee8c209f25980c05",
     "skills/jobos/references/lightweight.md": "4ebfda11cc843da2e5fc15df7029e958541c4fa95f49a23352885c6509846957",
-    "skills/jobos/SKILL.md": "278fcca1e83222a439c4900f8388ac96f257585c1daa20e4aa16cca17014ecd1",
+    "skills/jobos/references/resume-tailoring.md": "1063225578b4effa6fe11a0dd86f24a36c6a6c459653530be90ce15af036f061",
+    "skills/jobos/SKILL.md": "eec76d5585862528226015b9068afc7c15a8ac2c370a05b9a0626ff658a4e9e3",
     "src/applications.mjs": "6352c453224fa2f5f06a08e230aad2b1ae6269214dff2db7025a633f8d47fc6a",
     "src/authentication.mjs": "0c7a3c0b495a350c7f30cbfad3a2eb60497a9278f33f4f7885db32537d310723",
     "src/authorization.mjs": "def20ef2225ad772d721c1bb76625f46b5bd8e9d5bf1f5772e6af1b55a27f1e9",
