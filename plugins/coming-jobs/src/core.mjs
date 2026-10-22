@@ -155,3 +155,10 @@ export function publicSchema(schema) {
     }
     return O({ operation: E(...operations), ...properties }, ['operation']);
 }
+
+export function assertExternalFilename(file) {
+ const name=String(file??'').split(/[\\/]/).pop().normalize('NFKC');
+ assert(name&&!/(审核稿|草稿|待确认|draft|review[ _-]*copy)/i.test(name),'external_filename_required','请使用不含审核稿、草稿等内部标记的正式文件名，保留已审核文件字节。');
+ assert(!/[<>:"/\\|?*\x00-\x1f]/.test(name)&&!['.','..'].includes(name),'external_filename_required','附件名称无效。');
+ return name;
+}

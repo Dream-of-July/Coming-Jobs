@@ -6,7 +6,7 @@ import { remember } from './profile.mjs';
 import { normalizeFitAssessment } from './fit-assessment.mjs';
 import { candidateFitContext } from './fit-profile.mjs';
 
-const APPLY_KINDS=['target_list','apply_batch','approval_sheet','apply_grant','human_step','portal_session','material_approval','claim','submit_attempt','fit_question'];
+const APPLY_KINDS=['target_list','apply_batch','approval_sheet','apply_grant','human_step','portal_session','material_approval','claim','submit_attempt','fit_question','render_receipt'];
 const COMPARISON_KINDS = ['comparison_run','comparison_budget','comparison_task','comparison_scope','comparison_evaluation','comparison_receipt','comparison_snapshot','comparison_history','daily_independent'];
 export function workspace(store, a) {
     if (a.operation === 'presentation') {

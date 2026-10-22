@@ -2,7 +2,7 @@ import { itinerary } from './execution.mjs';
 import { fieldDigest, consentScope, coveredFields, authorizationState } from './authorization.mjs';
 import { assert, consent, noSecrets, hash, id, now, iso, originOf, portalLocation, equal } from './core.mjs';
 import { facts } from './profile.mjs';
-import { assertMaterialCurrent } from './materials.mjs';
+import { assertMaterialCurrent, materialApproved } from './materials.mjs';
 function applicationOrigin(app, url) {
     const u = new URL(url);
     if (app.mode === 'demo' && u.protocol === 'http:' && u.hostname === '127.0.0.1' && !u.username && !u.password)
@@ -24,7 +24,7 @@ export function planApplication(store, a) {
     const app = store.get('application', a.application_id);
     assert(app.stage === 'preparing', 'application_locked', '已提交或结果不明的申请只读，不再次填写。');
     const cv = app.resume_id ? store.get('material', app.resume_id, false) : null;
-    assert(cv?.approved, 'resume_review_required', '本次岗位简历尚未审核。', '展示本次实际 PDF，请用户审核一次。');
+    assert(cv && (materialApproved(store,cv) || cv.render_receipt?.passed), 'resume_review_required', '本次岗位简历尚未审核。', '展示本次实际 PDF，请用户审核一次。');
     store.assetPath(cv.asset);
     assertMaterialCurrent(store, cv);
     const origin = applicationOrigin(app, a.portal_url);
@@ -42,7 +42,7 @@ export function planApplication(store, a) {
             assert(evidence.every(e => fs.has(e)), 'unconfirmed_field', '普通字段只能引用已确认、允许填表且范围适用的事实。');
             if (f.type === 'file_upload') {
                 const m = store.get('material', String(f.value));
-                assert(m.approved, 'material_review_required', '附件没有经过用户审核。');
+                assert(materialApproved(store,m) || m.render_receipt?.passed, 'material_review_required', '附件没有经过用户审核。');
                 store.assetPath(m.asset);
                 assert(!f.max_bytes || m.asset.bytes <= f.max_bytes, 'attachment_too_large', '附件超过门户大小限制。');
                 assert(!f.allowed_mime_types || f.allowed_mime_types.includes(m.asset.mime_type ?? 'application/pdf'), 'attachment_type', '附件实际类型不符合门户要求。');
@@ -110,7 +110,7 @@ export function authorize(store, a) {
     assert(plan.content_hash === a.plan_hash && plan.origin === applicationOrigin(app, a.portal_url), 'disclosure_changed', '接收方或资料已变化。', '仅展示变更范围并取得适用授权。');
     const cv = store.get('material', app.resume_id);
     assertMaterialCurrent(store, cv);
-    assert(cv.approved, 'resume_review_required', '简历未审核。');
+    assert(materialApproved(store,cv), 'resume_review_required', '简历未审核。');
     for (const field of plan.groups.flatMap(g => g.fields))
         if (field.material)
             store.assetPath(field.material);

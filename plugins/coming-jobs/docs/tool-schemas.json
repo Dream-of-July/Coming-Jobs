@@ -4071,6 +4071,10 @@
         "operation": {
           "type": "string",
           "enum": [
+            "template_baseline",
+            "claim_propose",
+            "claim_approve",
+            "compose",
             "variation",
             "baseline",
             "lineage",
@@ -4081,6 +4085,109 @@
             "approve",
             "bind"
           ]
+        },
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "allowed_root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "render_script": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "asset_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "maxItems": 100
+        },
+        "text_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "maxItems": 200
+        },
+        "identity_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "maxItems": 100
+        },
+        "confirmed": {
+          "type": "boolean"
+        },
+        "user_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000
+              },
+              "evidence_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "maxItems": 50
+              }
+            },
+            "required": [
+              "path",
+              "text",
+              "evidence_ids"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        },
+        "claim_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "maxItems": 100
+        },
+        "job_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "external_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
         },
         "material_id": {
           "type": "string",
@@ -4122,14 +4229,6 @@
             "maxLength": 100
           },
           "maxItems": 50
-        },
-        "confirmed": {
-          "type": "boolean"
-        },
-        "user_ref": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1000
         },
         "sha256": {
           "type": "string",
@@ -4183,11 +4282,6 @@
           "maxItems": 200
         },
         "base_id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 100
-        },
-        "job_id": {
           "type": "string",
           "minLength": 1,
           "maxLength": 100
@@ -4309,16 +4403,6 @@
             "portfolio",
             "photo"
           ]
-        },
-        "file": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 4000
-        },
-        "allowed_root": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 4000
         },
         "authorized": {
           "type": "boolean"

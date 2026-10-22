@@ -1,3 +1,4 @@
+import {assertExternalFilename} from './core.mjs';
 /** Adapts only a Tab supplied by the current host; never launches, logs in or submits. */
 import { assert, equal, Fault } from './core.mjs';
 import { fieldDigest } from './authorization.mjs';
@@ -19,11 +20,7 @@ async function invoke(locator, method, value) {
     assert(typeof locator?.[method] === 'function', 'host_method_unavailable', '当前宿主不支持此控件操作，使用已核验的宿主适配。');
     return locator[method](value);
 }
-export function assertExternalFilename(file) {
-    const name = String(file ?? '').split(/[\\/]/).pop().normalize('NFKC');
-    assert(name && !/(审核稿|草稿|待确认|draft|review[ _-]*copy)/i.test(name), 'external_filename_required', '请使用不含审核稿、草稿等内部标记的正式文件名，保留已审核文件字节。');
-    return name;
-}
+export {assertExternalFilename} from './core.mjs';
 export async function readControl(tab, field) {
     const locator = locate(tab, field.locator);
     assert(await invoke(locator, 'count') === 1, 'ambiguous_locator', '字段没有唯一匹配，请更新页面观察。');

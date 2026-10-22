@@ -62,3 +62,9 @@ Ruling: CLI registration/install use an isolated host registry, and Claude local
 Phase 2 complete: commit 213788d, 363/363 tests, public check clear.
 
 Phase 3: four behavioral regressions first failed, now pass: tracking writes, dependency validity, one-time structured questions, approved-target JD changes. Full run initially 366/367; existing daily corruption test now corrupts evidence_digest instead of the retired all-profile validity key, preserving its fail-closed purpose.
+
+Phase 3 complete: commit a149c39, 367/367 tests, public check clear.
+
+Phase 4: content-hash approvals, locked template identity, grouped claim approval, plugin composition and isolated Chrome worker implemented. New behavioral tests RED→GREEN. Real synthetic Chrome tests: text mismatch rejected; layout overflow rejected; 2000px icon compressed to display size ×2; cached renders preserve exact PDF SHA. Initial sandbox Chrome launch timed out; approved local process run succeeds. Height test first failed in quirks mode; explicit doctype fixes content-height measurement. Node only extracts/hashes/transports source; the function executes in a fresh Chrome page with default sandbox, offline network emulation, blocked protocols, proxy denial and no executable markup scripts. No npm dependency added.
+
+Phase 4 verification: 373/373 tests, public check clear. Synthetic PDF visually inspected: white background, legible text, no clipping; content height 144.75pt, 19,408 bytes. Screenshot initially followed a dark canvas; set default white background and light media. Worker source hash now participates in cache keys so adapter changes cannot reuse an old screenshot.

@@ -1,3 +1,5 @@
+import { claimAction } from './claims.mjs';
+import { renderMaterial } from './renderer.mjs';
 import { imageMetadata } from './image-metadata.mjs';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -43,6 +45,7 @@ export function validateContent(store, content) {
 }
 const normalizeText = value => value.normalize('NFKC').replace(/\s+/gu, '');
 export function assertCompleteness(store, material) {
+    if (material.template_adapter) { assert(store.get('settings','template_baseline')?.content_hash===material.template_baseline_hash,'stale_baseline','模板基线已变化。'); return; }
     const base = store.get('settings', 'resume_baseline', false);
     if (!base || material.kind !== 'resume') return;
     assert(store.get('material', base.material_id).asset?.sha256 === base.sha256, 'stale_baseline', '基础文件发生变化，需要重新确认基线。');
@@ -59,7 +62,20 @@ export function assertMaterialCurrent(store, m) {
     const current = new Map(facts(store, 'resume').map(f => [f.id, f]));
     assert(m.evidence.every(e => current.has(e.id) && hash(current.get(e.id).value) === e.digest), 'material_evidence_changed', '简历引用的事实已更正、撤回或过期。', '只更新受影响内容并重新审核，不能沿用旧授权。');
 }
+export function materialApproved(store,m) {
+ if(!m?.asset)return false;
+ const approval=store.get('material_approval',m.asset.sha256,false);
+ if(!approval)return !!m.approved;
+ const fs=new Map(facts(store,'resume').map(f=>[f.id,f]));
+ return approval.state==='approved'&&(approval.evidence??[]).every(e=>fs.has(e.id)&&hash(fs.get(e.id).value)===e.digest);
+}
+export function approveMaterial(store,m,userRef,qa={visual:true,content:true,text:'pass'}) {
+ store.assetPath(m.asset);assertMaterialCurrent(store,m);
+ store.put('material_approval',m.asset.sha256,{sha256:m.asset.sha256,state:'approved',evidence:m.evidence??[],approval_ref:userRef,approved_at:now()});
+ return store.put('material',m.id,{...m,approved:true,qa,approval_ref:userRef,approved_at:now()});
+}
 export function materialAction(store, a) {
+    if (['template_baseline','claim_propose','claim_approve','compose'].includes(a.operation)) return claimAction(store,a);
     if (a.operation === 'variation') {
         consent(a.confirmed, a.user_ref);
         const m = store.get('material', a.material_id);
@@ -117,6 +133,11 @@ export function materialAction(store, a) {
     }
     if (a.operation === 'render') {
         const m = store.get('material', a.material_id);
+        if (m.template_adapter) {
+            assertMaterialCurrent(store,m);const receipt=renderMaterial(store,m);
+            const material=store.transaction(()=>store.put('material',m.id,{...m,asset:receipt.asset,render_receipt:receipt,text_evidence:{sha256:receipt.asset.sha256,text:receipt.text,extraction_ref:'offline_chrome_dom'},approved:materialApproved(store,{...m,asset:receipt.asset})}));
+            return {material,pdf_path:store.assetPath(receipt.asset),screenshot:receipt.screenshot,cache_hit:!!receipt.cache_hit,receipt};
+        }
         assert(m.content, 'content_required', '没有结构化内容，不能调用内置渲染。');
         validateContent(store, m.content);
         if (m.asset)
@@ -153,8 +174,8 @@ export function materialAction(store, a) {
             Object.assign(asset, imageMetadata(bytes, asset.format));
         } else assert(asset.format === 'pdf', 'invalid_pdf', '投递材料必须为 PDF。');
         const old = a.material_id ? store.get('material', a.material_id) : store.get('material', hash([a.kind, asset.sha256, a.job_id]), false);
-        const sameBytes = old?.approved && old.kind === a.kind && old.asset?.sha256 === asset.sha256;
-        if (sameBytes) assertMaterialCurrent(store, old);
+        const sameBytes = (old?.approved && old.kind === a.kind && old.asset?.sha256 === asset.sha256) || materialApproved(store,{asset,kind:a.kind});
+        if (sameBytes && old) assertMaterialCurrent(store, old);
         const job = a.job_id ? store.get('job', a.job_id) : old?.job_id ? store.get('job', old.job_id) : null;
         return store.put('material', old?.id ?? hash([a.kind, asset.sha256, job?.id]), { ...old, kind: a.kind, asset,
             job_id: job?.id ?? null, job_hash: job?.content_hash ?? null, template: old?.template ?? a.template ?? 'classic', approved: !!sameBytes,
@@ -167,7 +188,7 @@ export function materialAction(store, a) {
         assertMaterialCurrent(store, m);
         assert(m.asset.sha256 === a.sha256, 'material_changed', '审核的 PDF 与当前文件不一致。');
         assert(a.visual_ok && a.content_ok, 'review_required', '视觉和内容必须分别检查。');
-        return store.put('material', m.id, { ...m, approved: true, qa: { visual: true, content: true, text: a.text_quality }, approval_ref: a.user_ref, approved_at: now() });
+        return approveMaterial(store,m,a.user_ref,{visual:true,content:true,text:a.text_quality});
     }
     if (a.operation === 'bind') {
         const app = store.get('application', a.application_id), m = store.get('material', a.material_id);

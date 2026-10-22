@@ -65,6 +65,10 @@ tool('shortlist', '按指定公司充分发现；按职责、证据和资格档�
         OP('feedback', { job_id: S(100), decision: E('save', 'reject', 'defer'), reason: S(1000), until: S(80), ...APPROVAL }, ['job_id', 'decision', 'confirmed', 'user_ref'])
     ] });
 tool('material', '逐岗简历：生成、渲染、真实 Figma/PDF 登记、审核、绑定', { oneOf: [
+        OP('template_baseline',{file:S(4000),allowed_root:S(4000),render_script:S(4000),asset_paths:A(S(4000),100),text_paths:A(S(1000),200),identity_paths:A(S(1000),100),...APPROVAL},['file','render_script','text_paths','confirmed','user_ref']),
+        OP('claim_propose',{claims:A(O({path:S(1000),text:S(10000),evidence_ids:A(S(100),50)}),100)}),
+        OP('claim_approve',{claim_ids:A(S(100),100),...APPROVAL}),
+        OP('compose',{job_id:S(100),claim_ids:A(S(100),100),external_name:S(300)},['job_id']),
         OP('variation', { material_id: S(100), content_key: S(100), company: S(150), text: S(10000), reason: E('company_expansion', 'portal_length'), max_length: I(1,40000), evidence_ids: A(S(100), 50, 1), ...APPROVAL }, ['material_id','content_key','company','text','reason','evidence_ids','confirmed','user_ref']),
         OP('baseline', { material_id: S(100), sha256: S(64), extracted_text: S(100000), extraction_ref: S(1000), items: A(O({ key: S(100), category: E('education', 'work', 'project', 'achievement', 'award', 'portfolio'), text: S(10000) }), 200, 1), ...APPROVAL }),
         OP('lineage', { material_id: S(100), base_id: S(100), sha256: S(64), extracted_text: S(100000), extraction_ref: S(1000), ...APPROVAL }),
