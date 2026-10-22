@@ -1,3 +1,4 @@
+import {migrationAction} from './migration.mjs';
 import { readFileSync, existsSync, mkdirSync, cpSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -6,9 +7,10 @@ import { remember } from './profile.mjs';
 import { normalizeFitAssessment } from './fit-assessment.mjs';
 import { candidateFitContext } from './fit-profile.mjs';
 
-const APPLY_KINDS=['target_list','apply_batch','approval_sheet','apply_grant','human_step','portal_session','material_approval','claim','submit_attempt','fit_question','render_receipt'];
+const APPLY_KINDS=['target_list','apply_batch','approval_sheet','apply_grant','human_step','portal_session','material_approval','claim','submit_attempt','fit_question','render_receipt','migration'];
 const COMPARISON_KINDS = ['comparison_run','comparison_budget','comparison_task','comparison_scope','comparison_evaluation','comparison_receipt','comparison_snapshot','comparison_history','daily_independent'];
 export function workspace(store, a) {
+    if(['migration_plan','migrate','migration_revert'].includes(a.operation))return migrationAction(store,a,()=>workspace(store,{operation:'export',authorized:true,user_ref:a.user_ref}));
     if (a.operation === 'presentation') {
         noSecrets(a.result_ref);
         const current = store.get('settings', 'presentation');

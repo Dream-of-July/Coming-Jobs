@@ -1,0 +1,26 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {existsSync} from 'node:fs';
+import {batchFixture} from './batch-helpers.mjs';
+import {environment} from './helpers.mjs';
+import {call} from '../src/service.mjs';
+
+test('migration plan is pure and synthetic migrate/revert preserves before values with backup',t=>{
+ const e=batchFixture(t,1),s=e.apps[0];e.store.put('application',s.app.id,{...e.store.get('application',s.app.id),created_at:'2000-01-01T00:00:00Z'});e.store.put('fact','legacy-tracking',{key:'workflow.old.current_action',value:'Synthetic tracking',purposes:['matching'],state:'confirmed',scope:'global',evidence_level:'self_statement'});
+ const before=e.store.db.prepare('SELECT count(*) n FROM audit').get().n;const p=e.run('workspace',{operation:'migration_plan'});assert.equal(p.void_candidates.length,1);assert.equal(p.bookkeeping.length,1);assert.equal(e.store.db.prepare('SELECT count(*) n FROM audit').get().n,before);
+ const m=e.run('workspace',{operation:'migrate',plan_code:p.code,reply:`批准 ${p.code}`,confirmed:true,user_ref:'Synthetic migration approval'});assert(existsSync(m.backup.file));assert.equal(e.store.get('application',s.app.id).stage,'voided');assert.deepEqual(e.store.get('fact','legacy-tracking').purposes,['tracking']);
+ e.run('workspace',{operation:'migration_revert',migration_id:m.id,confirmed:true,user_ref:'Synthetic revert'});assert.equal(e.store.get('application',s.app.id).stage,'preparing');assert.deepEqual(e.store.get('fact','legacy-tracking').purposes,['matching']);
+});
+test('migration refuses changed plans and revert refuses overwriting later edits',t=>{
+ const e=batchFixture(t,1),p=e.run('workspace',{operation:'migration_plan'});const f=e.store.all('fact')[0];e.store.put('fact',f.id,{...f,value:'Synthetic changed'});
+ assert.equal(call(e.store,'jobos1_workspace',{operation:'migrate',plan_code:p.code,reply:`批准 ${p.code}`,confirmed:true,user_ref:'Synthetic'}).error.code,'migration_plan_changed');
+ e.store.put('fact','legacy-conflict',{key:'workflow.synthetic',value:'Synthetic old',purposes:['matching'],state:'confirmed',scope:'global'});const next=e.run('workspace',{operation:'migration_plan'}),m=e.run('workspace',{operation:'migrate',plan_code:next.code,reply:`批准 ${next.code}`,confirmed:true,user_ref:'Synthetic'});const a=e.store.get('fact','legacy-conflict');e.store.put('fact',a.id,{...a,value:'Synthetic later edit'});assert.equal(call(e.store,'jobos1_workspace',{operation:'migration_revert',migration_id:m.id,confirmed:true,user_ref:'Synthetic'}).error.code,'migration_conflict');
+});
+test('import voids grants closes human steps and retains all new record kinds',t=>{
+ const e=batchFixture(t,1);for(const k of ['apply_batch','approval_sheet','apply_grant','human_step','portal_session','target_list','material_approval','claim','submit_attempt'])e.store.put(k,'synthetic-'+k,{state:'active',safe:'Synthetic only'});
+ const x=e.run('workspace',{operation:'export',authorized:true,user_ref:'Synthetic backup'});const restored=environment(t);restored.run('workspace',{operation:'import',file:x.file,assets_dir:x.assets_directory,authorized:true,user_ref:'Synthetic restore'});assert.equal(restored.store.all('apply_grant')[0].state,'voided');assert.equal(restored.store.all('human_step')[0].state,'closed');for(const k of ['apply_batch','approval_sheet','portal_session','target_list','material_approval','claim','submit_attempt'])assert(restored.store.all(k).length,k);
+});
+
+test('reverting migration removes only answer records that the migration created',t=>{const e=batchFixture(t,1),p=e.run('workspace',{operation:'migration_plan'});const m=e.run('workspace',{operation:'migrate',plan_code:p.code,reply:`批准 ${p.code}`,confirmed:true,user_ref:'Synthetic',fit_answers:{degree:'Synthetic degree'}});assert(e.store.all('fact').some(f=>f.key==='education.degree'));e.run('workspace',{operation:'migration_revert',migration_id:m.id,confirmed:true,user_ref:'Synthetic revert'});assert(!e.store.all('fact').some(f=>f.key==='education.degree'));});
+
+test('legacy authentication choices must be explicit and keep revoke update stay distinct',t=>{const e=batchFixture(t,1);for(let i=1;i<=3;i++)e.store.put('fact','legacy-auth-'+i,{key:'workflow.login.legacy'+i,value:'Synthetic legacy rule',state:'confirmed',scope:'global',purposes:['tracking'],evidence_level:'inference'});const p=e.run('workspace',{operation:'migration_plan'});assert.equal(p.login_decisions.length,3);const args={operation:'migrate',plan_code:p.code,reply:`批准 ${p.code}`,confirmed:true,user_ref:'Synthetic'};assert.equal(call(e.store,'jobos1_workspace',args).error.code,'migration_decision_required');e.run('workspace',{...args,login_decisions:[{fact_id:'legacy-auth-1',decision:'keep'},{fact_id:'legacy-auth-2',decision:'revoke'},{fact_id:'legacy-auth-3',decision:'update',value:false}]});assert.equal(e.store.get('fact','legacy-auth-1').value,'Synthetic legacy rule');assert.equal(e.store.get('fact','legacy-auth-2').state,'revoked');assert.equal(e.store.get('fact','legacy-auth-3').value,false);});

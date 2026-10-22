@@ -109,6 +109,7 @@ tool('interview', '依据实际提交材料准备面试，基于转写复盘并�
             memory_candidates: A(O({ speaker: { const: 'candidate' }, key: S(150), value: V, quote: S(3000) }), 30) }, ['application_id', 'source_id', 'findings'])
     ] });
 tool('workspace', '授权资料导入、本地看板和跨版本数据导入导出', { oneOf: [
+        OP('migration_plan'),OP('migrate',{plan_code:S(20),reply:S(2000),login_decisions:A(O({fact_id:S(100),decision:E('keep','revoke','update'),value:B},['fact_id','decision']),100),fit_answers:O(fitProfileFields,[]),...APPROVAL},['plan_code','reply','confirmed','user_ref']),OP('migration_revert',{migration_id:S(100),...APPROVAL}),
         OP('source', { label: S(300), kind: E('resume', 'portfolio', 'notes', 'repository', 'memory', 'transcript', 'audio'), purposes: PURPOSE, file: S(4000), allowed_root: S(4000), text: S(1000000), authorized: B, user_ref: S(1000) }, ['label', 'kind', 'purposes', 'authorized', 'user_ref']),
         OP('export', { authorized: B, user_ref: S(1000) }), OP('import', { file: S(4000), assets_dir: S(4000), authorized: B, user_ref: S(1000) }, ['file', 'authorized', 'user_ref']), OP('dashboard'), OP('presentation', { status: E('opened', 'failed'), result_ref: S(1000), view_hash: S(64) }, ['status', 'result_ref'])
     ] });

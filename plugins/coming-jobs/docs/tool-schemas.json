@@ -6329,12 +6329,198 @@
         "operation": {
           "type": "string",
           "enum": [
+            "migration_plan",
+            "migrate",
+            "migration_revert",
             "source",
             "export",
             "import",
             "dashboard",
             "presentation"
           ]
+        },
+        "plan_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "reply": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "login_decisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "fact_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "decision": {
+                "type": "string",
+                "enum": [
+                  "keep",
+                  "revoke",
+                  "update"
+                ]
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "fact_id",
+              "decision"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        },
+        "fit_answers": {
+          "type": "object",
+          "properties": {
+            "graduation_year": {
+              "type": "integer",
+              "minimum": 1900,
+              "maximum": 2200
+            },
+            "degree": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "availability": {
+              "type": "object",
+              "properties": {
+                "current_location": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "location": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "earliest_start": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "days_per_week": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "continuous_months": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 120
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "capabilities": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "breadth_depth": {
+                    "type": "string",
+                    "enum": [
+                      "breadth",
+                      "depth",
+                      "none"
+                    ]
+                  },
+                  "level": {
+                    "type": "string",
+                    "enum": [
+                      "self_statement",
+                      "original_artifact",
+                      "third_party",
+                      "ai_summary",
+                      "inference"
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  },
+                  "evidence_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                },
+                "required": [
+                  "name",
+                  "breadth_depth",
+                  "level"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 100
+            },
+            "preferred_service_objects": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "consumer",
+                  "enterprise_user",
+                  "internal_team",
+                  "developer",
+                  "player",
+                  "merchant",
+                  "mixed"
+                ]
+              },
+              "maxItems": 7
+            },
+            "preferred_deliverables": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "product_spec",
+                  "interaction_design",
+                  "visual",
+                  "research",
+                  "code",
+                  "operations",
+                  "content",
+                  "mixed"
+                ]
+              },
+              "maxItems": 8
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "confirmed": {
+          "type": "boolean"
+        },
+        "user_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "migration_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
         },
         "label": {
           "type": "string",
@@ -6384,11 +6570,6 @@
         },
         "authorized": {
           "type": "boolean"
-        },
-        "user_ref": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1000
         },
         "assets_dir": {
           "type": "string",

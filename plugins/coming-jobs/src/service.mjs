@@ -48,7 +48,7 @@ export function call(store, name, args = {}) {
         validate(INTERNAL_SCHEMAS.get(name), args);
         const action = handlers[name.slice('jobos1_'.length)];
         const readBatch = name==='jobos1_apply_batch'&&['sheet','status'].includes(args.operation);
-        const outsideTransaction = readBatch || def.annotations.readOnlyHint || (name === 'jobos1_material' && args.operation === 'render');
+        const outsideTransaction = (name==='jobos1_workspace'&&['migration_plan','migrate','migration_revert'].includes(args.operation)) || readBatch || def.annotations.readOnlyHint || (name === 'jobos1_material' && args.operation === 'render');
         const run = () => {
             const data = action(store, args);
             const short = name.slice(7);
