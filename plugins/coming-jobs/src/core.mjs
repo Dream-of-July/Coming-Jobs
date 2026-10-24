@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 export const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-export const VERSION = '1.0.0-beta.16';
+export const VERSION = '1.0.0-beta.17';
 export const CONTRACT = 'jobos/1';
 export function buildId() {
     try {
@@ -78,56 +78,92 @@ export function noSecrets(value, key = '') {
 export function consent(value, ref) {
     assert(value === true && typeof ref === 'string' && ref.trim().length > 0, 'approval_required', '需要本次实际用户确认的依据。', '说明具体资料、接收方和用途；已有适用授权不要重复询问。');
 }
-export function validate(schema, value, at = '参数') {
+const operationBranches = schema => schema.oneOf?.length && schema.oneOf.every(s => s.properties?.operation?.const !== undefined) ? schema.oneOf : null;
+function operationBranch(schema, value) {
+    const branches = operationBranches(schema);
+    return branches && value && typeof value === 'object' ? branches.find(s => s.properties.operation.const === value.operation) ?? null : null;
+}
+const passes = (schema, value, at) => { const errors = []; collect(schema, value, at, errors); return errors.length === 0; };
+// Collect every problem in one pass so callers can fix all fields in a single retry.
+function collect(schema, value, at, errors) {
+    const fail = (path, problem) => { errors.push({ path, problem }); return false; };
     if (schema.anyOf) {
-        assert(schema.anyOf.some(s => { try { validate(s, value, at); return true; } catch { return false; } }), 'invalid_arguments', `${at}不符合允许的字段结构。`);
+        if (!schema.anyOf.some(s => passes(s, value, at))) fail(at, '不符合允许的字段结构');
         return;
     }
     if (schema.oneOf) {
-        if (value && typeof value.operation === 'string') {
-            const branch = schema.oneOf.find(s => s.properties?.operation?.const === value.operation);
-            assert(branch, 'invalid_arguments', `${at}.operation 不支持 ${String(value.operation).slice(0,80)}。`);
-            return validate(branch, value, `${at}.${value.operation}`);
+        const branches = operationBranches(schema);
+        if (branches && value && typeof value === 'object' && !Array.isArray(value)) {
+            const operations = branches.map(s => s.properties.operation.const);
+            if (!Object.hasOwn(value, 'operation')) return fail(`${at}.operation`, `缺失，可选 ${operations.join(' / ')}`);
+            const branch = operationBranch(schema, value);
+            if (!branch) return fail(`${at}.operation`, `不支持 ${String(value.operation).slice(0, 80)}，可选 ${operations.join(' / ')}`);
+            return collect(branch, value, `${at}.${value.operation}`, errors);
         }
-        const valid = schema.oneOf.filter(s => { try {
-            validate(s, value, at);
-            return true;
-        }
-        catch {
-            return false;
-        } });
-        assert(valid.length === 1, 'invalid_arguments', `${at}不符合任一明确操作结构。`, '根据 tools/list 中该操作的字段重试一次，不读取源码猜参数。');
+        if (schema.oneOf.filter(s => passes(s, value, at)).length !== 1) fail(at, '不符合任一明确操作结构');
         return;
     }
-    if (schema.const !== undefined)
-        assert(equal(value, schema.const), 'invalid_arguments', `${at}必须为 ${schema.const}。`);
-    if (schema.enum)
-        assert(schema.enum.includes(value), 'invalid_arguments', `${at}必须为 ${schema.enum.join(' / ')}。`);
+    if (schema.const !== undefined && !equal(value, schema.const))
+        return fail(at, `必须为 ${schema.const}`);
+    if (schema.enum && !schema.enum.includes(value))
+        return fail(at, `必须为 ${schema.enum.join(' / ')}`);
     if (schema.type) {
         const type = Array.isArray(value) ? 'array' : value === null ? 'null' : typeof value;
-        assert(schema.type === 'integer' ? Number.isSafeInteger(value) : type === schema.type, 'invalid_arguments', `${at}类型应为 ${schema.type}。`);
+        if (!(schema.type === 'integer' ? Number.isSafeInteger(value) : type === schema.type)) return fail(at, `类型应为 ${schema.type}`);
     }
     if (typeof value === 'string') {
-        assert(value.length >= (schema.minLength ?? 0) && value.length <= (schema.maxLength ?? 1000000), 'invalid_arguments', `${at}长度不在允许范围内。`);
-        if (schema.pattern)
-            assert(new RegExp(schema.pattern).test(value), 'invalid_arguments', `${at}格式不正确。`);
+        if (value.length < (schema.minLength ?? 0) || value.length > (schema.maxLength ?? 1000000)) fail(at, '长度不在允许范围内');
+        else if (schema.pattern && !new RegExp(schema.pattern).test(value)) fail(at, `格式不正确，应匹配 ${schema.pattern}`);
     }
-    if (typeof value === 'number')
-        assert(value >= (schema.minimum ?? -Infinity) && value <= (schema.maximum ?? Infinity), 'invalid_arguments', `${at}超出允许范围。`);
+    if (typeof value === 'number' && (value < (schema.minimum ?? -Infinity) || value > (schema.maximum ?? Infinity)))
+        fail(at, '超出允许范围');
     if (Array.isArray(value)) {
-        assert(value.length >= (schema.minItems ?? 0) && value.length <= (schema.maxItems ?? 10000), 'invalid_arguments', `${at}条目数量不正确。`);
-        value.forEach((v, i) => validate(schema.items ?? {}, v, `${at}[${i}]`));
+        if (value.length < (schema.minItems ?? 0) || value.length > (schema.maxItems ?? 10000)) fail(at, '条目数量不正确');
+        value.forEach((v, i) => collect(schema.items ?? {}, v, `${at}[${i}]`, errors));
     }
     if (schema.type === 'object') {
         for (const k of schema.required ?? [])
-            assert(Object.hasOwn(value, k), 'invalid_arguments', `${at}.${k}缺失。`);
+            if (!Object.hasOwn(value, k)) fail(`${at}.${k}`, '缺失');
         for (const [k, v] of Object.entries(value)) {
-            assert(!['__proto__', 'constructor', 'prototype'].includes(k), 'invalid_arguments', '禁止特殊对象键。');
-            assert(schema.additionalProperties !== false || Object.hasOwn(schema.properties ?? {}, k), 'invalid_arguments', `${at}.${k}不是该操作支持的字段。`);
+            if (['__proto__', 'constructor', 'prototype'].includes(k)) { fail(`${at}.${k}`, '禁止特殊对象键'); continue; }
+            if (schema.additionalProperties === false && !Object.hasOwn(schema.properties ?? {}, k)) { fail(`${at}.${k}`, '不是该操作支持的字段'); continue; }
             if (schema.properties?.[k])
-                validate(schema.properties[k], v, `${at}.${k}`);
+                collect(schema.properties[k], v, `${at}.${k}`, errors);
         }
     }
+}
+const PLACEHOLDER_TIME = '2026-01-01T00:00:00.000Z';
+/** Minimal payload that passes the schema: required fields only, placeholders marked with <>. */
+export function exampleFor(schema, key = 'value') {
+    if (schema.const !== undefined) return schema.const;
+    if (schema.enum) return schema.enum[0];
+    if (schema.oneOf || schema.anyOf) return exampleFor((schema.oneOf ?? schema.anyOf)[0], key);
+    switch (schema.type) {
+        case 'object': return Object.fromEntries((schema.required ?? []).map(k => [k, exampleFor(schema.properties?.[k] ?? {}, k)]));
+        case 'array': return Array.from({ length: schema.minItems ?? 0 }, () => exampleFor(schema.items ?? {}, key));
+        case 'boolean': return true;
+        case 'integer': case 'number': return Math.max(schema.minimum ?? 0, Math.min(1, schema.maximum ?? 1));
+        case 'null': return null;
+        case 'string': {
+            if (schema.pattern) return `<匹配 ${schema.pattern}>`;
+            const text = /(_at|deadline|until)$/.test(key) ? PLACEHOLDER_TIME : /sha256|_hash|digest/.test(key) ? '0'.repeat(Math.min(64, schema.maxLength ?? 64)) : `<${key}>`;
+            return text.length <= (schema.maxLength ?? Infinity) ? text : text.slice(0, schema.maxLength);
+        }
+        default: return `<${key}>`;
+    }
+}
+export function validate(schema, value, at = '参数') {
+    const errors = [];
+    collect(schema, value, at, errors);
+    if (!errors.length) return;
+    const branch = operationBranch(schema, value);
+    const target = branch ?? (operationBranches(schema) ? null : schema);
+    const details = { errors: errors.slice(0, 50), error_count: errors.length,
+        ...(branch ? { operation: value.operation } : operationBranches(schema) ? { operations: operationBranches(schema).map(s => s.properties.operation.const) } : {}),
+        ...(target ? { example: exampleFor(target) } : {}) };
+    const list = errors.slice(0, 20).map(e => `${e.path}${e.problem}`).join('；');
+    throw new Fault('invalid_arguments', errors.length === 1 ? `${list}。` : `共 ${errors.length} 处参数问题：${list}${errors.length > 20 ? '……' : ''}。`,
+        '按 details.errors 一次修正全部字段后重试，可直接参照 details.example 补齐必填项；不读取源码猜参数。', details);
 }
 export const S = (maxLength = 2000) => ({ type: 'string', minLength: 1, maxLength });
 export const B = { type: 'boolean' };
