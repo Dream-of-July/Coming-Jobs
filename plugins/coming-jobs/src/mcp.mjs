@@ -1,7 +1,8 @@
-import { HOST_POLICY } from './policy.mjs';
+import { currentHost, boundedResult } from './host.mjs';
+import { hostPolicy } from './policy.mjs';
 import { createInterface } from 'node:readline';
 import { Store } from './store.mjs';
-import { TOOLS } from './catalog.mjs';
+import { TOOLS, INTERNAL_SCHEMAS } from './catalog.mjs';
 import { call } from './service.mjs';
 import { VERSION, validate } from './core.mjs';
 import { startDashboard } from './web.mjs';
@@ -36,7 +37,7 @@ async function receive(line) {
         const versions = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
         respond(req.id, { protocolVersion: versions.includes(req.params?.protocolVersion) ? req.params.protocolVersion : '2025-06-18',
             capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'jobos_next', version: VERSION },
-            instructions: HOST_POLICY });
+            instructions: hostPolicy() });
         return;
     }
     if (req.method === 'ping') {
@@ -51,7 +52,7 @@ async function receive(line) {
         let result;
         if (req.params?.name === 'jobos1_workspace' && req.params.arguments?.operation === 'dashboard') {
             try {
-                validate(TOOLS.find(t => t.name === 'jobos1_workspace').inputSchema, req.params.arguments);
+                validate(INTERNAL_SCHEMAS.get('jobos1_workspace'), req.params.arguments);
                 dashboard ??= await startDashboard(store);
                 const current = call(store, 'jobos1_workspace', {operation:'dashboard'});
                 result = { ...current, data: { ...current.data, url: dashboard.url, note: '仅本机；服务随这个 MCP 进程保持，退出后可从启动器重新打开。' } };
@@ -62,7 +63,7 @@ async function receive(line) {
         }
         else
             result = call(store, req.params?.name, req.params?.arguments ?? {});
-        respond(req.id, { isError: !result.ok, structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result) }] });
+        respond(req.id, { isError: !result.ok, ...(currentHost().id === 'codex' ? { structuredContent: result } : {}), content: [{ type: 'text', text: JSON.stringify(boundedResult(result)) }] });
         return;
     }
     respond(req.id, null, { code: -32601, message: 'Method not found' });

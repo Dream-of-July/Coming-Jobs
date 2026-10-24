@@ -1,0 +1,10 @@
+{
+  "name": "coming-jobs",
+  "version": "1.0.0-beta.16",
+  "description": "Local career companion with content-bound batch approval for Codex and Claude.",
+  "author": {
+    "name": "Dream-of-July"
+  },
+  "repository": "https://github.com/Dream-of-July/Coming-Jobs",
+  "license": "MIT"
+}

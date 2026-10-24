@@ -26,7 +26,7 @@ test('baseline rejects absent awards and old unlinked material', t => {
 test('batch write ahead prevents replay and preserves changed user values',t=>{
  const e=environment(t),s=seedApplication(e),p=seedPlan(e,s), batches=itinerary(p);
  assert.equal(batches[0].kind,'file_upload');
- const base={application_id:s.app.id,plan_hash:p.content_hash,session_id:'session',portal_url:p.origin,page_fingerprint:p.page_fingerprint,observed_at:now(),protected_fields:[{key:'name',value:'',read_state:'known'},{key:'school',value:'',read_state:'known'}],batch_number:1};
+ const base={application_id:s.app.id,plan_hash:p.content_hash,session_id:'session',portal_url:p.origin,page_fingerprint:p.page_fingerprint,observed_at:now(),controls:[{key:'name',type:'free_text',required:true},{key:'school',type:'portal_select',required:true},{key:'cv',type:'file_upload',required:true}],protected_fields:[{key:'name',value:'',read_state:'known'},{key:'school',value:'',read_state:'known'}],batch_number:1};
  const before=[{key:'cv',read_state:'known',file_count:0}];
  e.run('checkpoint',{...base,phase:'prepare',groups:[{key:'resume',fields:before}]});
  assert.equal(call(e.store,'jobos1_checkpoint',{...base,phase:'prepare',groups:[{key:'resume',fields:before}]}).error.code,'recovery_required');
@@ -64,7 +64,7 @@ test('company exception remains scoped and requires evidence and explicit length
 });
 test('batch requires parsing association and save independently before ordinary edits',t=>{
  const e=environment(t),s=seedApplication(e),p=seedPlan(e,s);
- const args={application_id:s.app.id,plan_hash:p.content_hash,session_id:'session',portal_url:p.origin,page_fingerprint:p.page_fingerprint,observed_at:now(),protected_fields:[{key:'name',value:'',read_state:'known'},{key:'school',value:'',read_state:'known'}],batch_number:1};
+ const args={application_id:s.app.id,plan_hash:p.content_hash,session_id:'session',portal_url:p.origin,page_fingerprint:p.page_fingerprint,observed_at:now(),controls:[{key:'name',type:'free_text',required:true},{key:'school',type:'portal_select',required:true},{key:'cv',type:'file_upload',required:true}],protected_fields:[{key:'name',value:'',read_state:'known'},{key:'school',value:'',read_state:'known'}],batch_number:1};
  e.run('checkpoint',{...args,phase:'prepare',groups:[{key:'resume',fields:[{key:'cv',file_count:0,read_state:'known'}]}]});
  const result=e.run('checkpoint',{...args,phase:'complete',groups:[correctObservations(s)[2]]});
  assert.equal(result.state,'unknown');
@@ -73,7 +73,7 @@ test('batch requires parsing association and save independently before ordinary 
 });
 test('parse cannot overwrite existing portal edits without exact restoration scope',t=>{
  const e=environment(t),s=seedApplication(e),p=seedPlan(e,s);
- const r=call(e.store,'jobos1_checkpoint',{application_id:s.app.id,plan_hash:p.content_hash,session_id:'session',portal_url:p.origin,page_fingerprint:p.page_fingerprint,observed_at:now(),batch_number:1,phase:'prepare',protected_fields:[{key:'name',value:'user corrected name',read_state:'known'},{key:'school',value:'',read_state:'known'}],groups:[{key:'resume',fields:[{key:'cv',file_count:0,read_state:'known'}]}]});
+ const r=call(e.store,'jobos1_checkpoint',{application_id:s.app.id,plan_hash:p.content_hash,session_id:'session',portal_url:p.origin,page_fingerprint:p.page_fingerprint,observed_at:now(),batch_number:1,phase:'prepare',controls:[{key:'name',type:'free_text',required:true},{key:'school',type:'portal_select',required:true},{key:'cv',type:'file_upload',required:true}],protected_fields:[{key:'name',value:'user corrected name',read_state:'known'},{key:'school',value:'',read_state:'known'}],groups:[{key:'resume',fields:[{key:'cv',file_count:0,read_state:'known'}]}]});
  assert.equal(r.error.code,'parse_restore_scope_required');assert.equal(e.store.all('execution_batch').length,0);
 });
 

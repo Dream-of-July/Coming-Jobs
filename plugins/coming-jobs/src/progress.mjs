@@ -6,6 +6,7 @@ import { queue } from './followup.mjs';
 const escape = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels = {preparing:'准备中',unknown:'待核验',submitted:'已投递',screening:'筛选中',assessment:'测评中',interview:'面试中',offer:'已获 Offer',rejected:'未通过',withdrawn:'已撤回'};
 export function renderProgress(applications, schedule, updatedAt, followups = [], notifications = [], daily = null, report = null) {
+ applications=applications.filter(a=>a.stage!=='voided');
  const safe = value => String(value ?? '').replace(/https?:\/\/\S+/g, '[链接省略]').replace(/[\w.+-]+@[\w.-]+/g, '[邮箱省略]').replace(/(?<!\d)1[3-9]\d{9}(?!\d)/g, '[联系方式省略]');
  const rows = applications.map(a=>`<tr><td><strong>${escape(safe(a.company))}</strong><br>${escape(safe(a.title))}</td><td><span class="pill">${escape(labels[a.stage]??'待核验')}</span>${a.attention==='evidence_conflict'?'<p>状态存在冲突，待核对</p>':''}</td><td>${escape(a.submission_evidence==='portal_observed'?'官网已核验':a.submission_evidence==='user_reported'?'用户报告':'待核验')}</td><td>${escape(a.last_observation_at??'尚未核验')}</td><td>${escape(({available:'可查询',not_configured:'待连接',temporarily_unavailable:'暂不可用',permission_denied:'权限未授予'})[followups.find(x=>x.application_id===a.id)?.capability]??'待核验')}</td></tr>`).join('');
  const reasons = {scope_review_incomplete:'完整岗位审阅尚未完成',company_introduction_pending:'公司介绍待核验',opportunity_unverified:'剩余投递机会待核验',no_matching_open_jobs:'暂未发现有充分依据的适合岗位',company_scope_required:'公司目录或招聘批次待补齐'};
@@ -18,8 +19,8 @@ export function renderProgress(applications, schedule, updatedAt, followups = []
 export function writeProgress(store) {
  const dir=path.join(store.home,'views');mkdirSync(dir,{recursive:true,mode:0o700});
  const file=path.join(dir,'progress.html');
- writeFileSync(file+'.tmp',renderProgress(store.all('application').filter(a=>a.mode!=='demo'),store.get('settings','schedule',false),new Date().toISOString(),queue(store),store.all('notification').filter(n=>store.get('application',n.application_id,false)?.mode!=='demo'),dailySummary(store),store.all('daily_report').filter(r=>store.get('daily_run',r.run_id,false)?.mode==='live').at(-1)),{mode:0o600});renameSync(file+'.tmp',file);
+ writeFileSync(file+'.tmp',renderProgress(store.all('application').filter(a=>a.mode!=='demo'&&a.stage!=='voided'),store.get('settings','schedule',false),new Date().toISOString(),queue(store),store.all('notification').filter(n=>store.get('application',n.application_id,false)?.mode!=='demo'),dailySummary(store),store.all('daily_report').filter(r=>store.get('daily_run',r.run_id,false)?.mode==='live').at(-1)),{mode:0o600});renameSync(file+'.tmp',file);
  const view_hash = hash([store.all('application').map(a=>[a.id,a.revision]), store.get('settings','schedule',false), store.all('notification'),store.all('capability'),dailySummary(store),store.all('daily_report').map(r=>r.digest)]);
  store.put('settings','presentation',{status:'generated',view_hash,generated_at:new Date().toISOString()});
- return {status:'ready',view_hash,file,format:'html',contains_private_data:true,host_action:'open_in_codex',target:{type:'file',path:file},instruction:'现在使用Codex宿主open_in_codex打开此HTML综合进度页；打开成功后再交接，不声称文件生成等于页面已打开。不要公开托管。'};
+ return {status:'ready',view_hash,file,format:'html',contains_private_data:true,host_action:'open_local_view',target:{type:'file',path:file},instruction:'现在使用当前宿主的本地视图能力打开此HTML综合进度页；打开成功后再交接，不声称文件生成等于页面已打开。不要公开托管。'};
 }

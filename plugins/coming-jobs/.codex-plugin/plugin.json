@@ -1,13 +1,13 @@
 {
   "name": "coming-jobs",
-  "version": "1.0.0-beta.13",
-  "description": "A local-first career companion. Optimized exclusively for Codex Desktop. / 为 Codex Desktop 优化的本地求职助手。",
+  "version": "1.0.0-beta.16",
+  "description": "A local-first career companion for Codex and Claude. / 支持 Codex 与 Claude 的本地求职助手。",
   "skills": "./skills",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Coming Jobs",
     "shortDescription": "Your next chapter, with less busywork. / 少些繁琐，向下一程出发。",
-    "longDescription": "A local-first career companion for Codex Desktop. Candidate context, daily shortlists, complete resumes, recoverable forms and application tracking. Test release; final submission stays with you. / 目前仅为 Codex Desktop 优化，最终提交由你完成。",
+    "longDescription": "Local career records, verified materials and batch-approved applications. / 本地资料、可核验材料与逐批审批投递。",
     "developerName": "Dream-of-July",
     "category": "Productivity",
     "capabilities": [

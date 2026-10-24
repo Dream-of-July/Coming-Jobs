@@ -1,17 +1,22 @@
 # Architecture / 内部结构
 
-| Layer / 层 | Responsibility / 职责 |
+| Layer | Responsibility |
 | --- | --- |
-| Codex Desktop | Conversation, approved browser operations, research and host scheduling / 对话、授权浏览器、检索与调度 |
-| Skill | Resume the right workflow and carry user intent / 选择与恢复正确流程 |
-| MCP service | Validate tool inputs, consent, facts and state transitions / 校验输入、授权、事实和状态 |
-| Private workspace | SQLite records, versioned materials, drafts and scoped experiences / 保存资料、版本、草稿与经验 |
-| Host batch adapter | Execute bounded approved fields and return real observations / 执行有限已授权字段并回读 |
+| Host profiles | Codex default and Claude browser, code-entry, worker, view and scheduler capabilities |
+| MCP catalog | Portable public object schemas; original oneOf operation schemas validate server-side |
+| Profile and validity | Evidence/intent matching digest, cited-evidence invalidation, soft stale and structured gate projection |
+| Claims and renderer | Locked baseline, approved claims, plugin composition, offline Chrome worker, DOM/PDF/screenshot receipts |
+| Apply batch | target_list, apply_batch, pure approval sheet, atomic apply_grant and existing prefill authorization |
+| Execution | At-most-eight native action batches, write-ahead state, parser comparison, recovery and portal persistence |
+| Submit attempt | Foreground-only content recheck, unknown-before-click state, immutable resume SHA, result tracking |
+| Private SQLite | WAL, serialized mutations, single writer leases, audit digests and backup/revert |
 
-The plugin never supplies its own browser login or final-submit capability. Host observations are evidence inputs, not independent server-side verification. A local write-ahead batch survives a lost tool channel; recovery compares the old, target and current value before any repeat write.
+`JOBOS_HOST` defaults to codex. Codex keeps Luna packet hashes and its existing config shape; Claude gets separate generated absolute paths. The installer does not edit either user's settings. Root and plugin Claude manifests coexist with Codex metadata and the read-only jobos-worker agent.
 
-插件不提供独立网页登录或最终提交能力。宿主回读属于输入证据，不是服务器端独立验证。通道中断时保留写前记录，恢复先比较原值、目标值和现值。
+`sheet` only computes a view. Its code binds the batch nonce, issued_at and item fingerprints. approve recomputes it and writes approval_sheet, apply_grant, material_approval and each existing authorization in one transaction. Freshness timestamps and leases are not content; plan, job, recipient, field, file and agreement changes are. clear_submit runs inside BEGIN IMMEDIATE, verifies all authority/current observations and writes submit_attempt plus stage=unknown before returning the one-click instruction. A failed changed-item check rolls back the attempt, then persists only that approved item's pause.
 
-The directory `plugins/coming-jobs` contains the distribution. Legacy internal names (`jobos_next`, `jobos1_`, `jobos/1`, `JOBOS_NEXT_HOME`, `~/.jobos-next`) remain intentional compatibility boundaries. They do not identify a second active plugin.
+Original daily `batch` records remain separate. Every new record kind is included in both workspace export/import lists; imported grants cannot authorize external writes. voided applications do not count as submitted, consume quota, become fallback focus or get reused by createApplication.
 
-`plugins/coming-jobs` 是发布插件；保留旧内部标识用于兼容，不代表同时运行第二个插件。
+Node never evaluates a template function. The synchronous parent transports pinned source/data to a disposable CDP-pipe worker, which evaluates the function only inside an offline Chrome page. Rendering happens outside database write transactions; verified receipts and assets register afterward. No npm dependency is added.
+
+User statements and host observations remain evidence inputs. This is a local orchestration and consent boundary, not an independent portal verifier or a browser permission bypass.

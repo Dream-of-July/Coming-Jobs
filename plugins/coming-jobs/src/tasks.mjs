@@ -1,3 +1,4 @@
+import { currentHost } from './host.mjs';
 import { materialIndex } from './material-index.mjs';
 import { assert, hash, id, now, noSecrets, S, B, I, E, A, O, OP } from './core.mjs';
 import { facts, profileDigest } from './profile.mjs';
@@ -9,7 +10,7 @@ const ROW_PROPERTIES = { input_id: S(100), decision: E('include', 'exclude', 'un
 const METRICS = O({ input_bytes: I(0, 100000000), output_bytes: I(0, 100000000), input_tokens: I(0, 10000000), output_tokens: I(0, 10000000), elapsed_ms: I(0, 86400000) }, []);
 export const tasksSchema = ASSESSMENT => ({ oneOf: [
     OP('plan', { parent_run_id: S(100), tasks: A(SPEC, 100) }),
-    OP('claim', { parent_run_id: S(100), host_capacity: I(0, 3), luna_available: B, limit: I(1, 3) }, ['parent_run_id', 'host_capacity', 'luna_available']),
+    OP('claim', { parent_run_id: S(100), host_capacity: I(0, 3), luna_available: B, worker_available: B, limit: I(1, 3) }, ['parent_run_id', 'host_capacity']),
     OP('complete', { task_id: S(100), attempt_id: S(100), input_hash: S(64), results: A(O({ ...ROW_PROPERTIES, assessment: ASSESSMENT }, ['input_id', 'decision', 'reason', 'evidence_refs']), 10), metrics: METRICS }, ['task_id', 'attempt_id', 'input_hash', 'results']),
     OP('review', { task_id: S(100), checked_ids: A(S(100), 10), error_ids: A(S(100), 10), review_ref: S(1000) }),
     OP('takeover', { task_id: S(100), reason: E('unavailable', 'failed', 'interrupted', 'ambiguous') }),
@@ -51,7 +52,7 @@ function snapshot(store, spec) {
     const baseline = spec.kind === 'material_comparison' ? store.get('settings', 'resume_baseline', false) : null;
     return { inputs, facts: selected, baseline, rules: TASK_RULES,
         // New/revoked facts invalidate matching, including facts not selected in an older packet.
-        profile_hash: profileDigest(store, use), scope_hash: hash(available), model: 'gpt-5.6-luna', reasoning: 'medium' };
+        profile_hash: profileDigest(store, use), scope_hash: hash(available), model: currentHost().id === 'codex' ? 'gpt-5.6-luna' : 'coming-jobs:jobos-worker', reasoning: 'medium' };
 }
 function fresh(store, task) {
     assert(hash(snapshot(store, task.spec)) === task.input_hash, 'task_inputs_changed', '任务输入已变化；保留旧结果但不得采用，请重新规划受影响任务。');
@@ -106,11 +107,11 @@ export function agentTasks(store, a) {
         return { tasks: planned };
     }
     if (a.operation === 'claim') {
-        const all = store.all('agent_task'), live = all.filter(t => t.state === 'running' && t.owner === 'luna');
+        const all = store.all('agent_task'), live = all.filter(t => t.state === 'running' && t.owner === currentHost().worker_owner);
         const pending = all.filter(t => t.parent_run_id === a.parent_run_id && t.state === 'pending' && (t.spec.dependencies ?? []).every(d => store.get('agent_task', d).state === 'reviewed'));
         const small = pending.reduce((n, t) => n + t.spec.inputs.length, 0) <= 2;
-        const owner = a.luna_available && a.host_capacity > 0 && !small ? 'luna' : 'main';
-        const count = owner === 'luna' ? Math.max(0, Math.min(a.limit ?? 3, a.host_capacity, 3) - live.length) : 1;
+        const owner = (a.worker_available ?? a.luna_available) && a.host_capacity > 0 && !small ? currentHost().worker_owner : 'main';
+        const count = owner === currentHost().worker_owner ? Math.max(0, Math.min(a.limit ?? 3, a.host_capacity, 3) - live.length) : 1;
         const selected = [];
         const occupied = new Set(all.filter(t => t.state === 'running').flatMap(t => t.spec.inputs.map(r => `${r.kind}:${r.id}`)));
         for (const t of pending) {

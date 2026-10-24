@@ -98,7 +98,7 @@ test('new shortlist guidance supersedes an old active application', t => {
     seedApplication(e);
     e.store.put('batch', 'batch-test', { items: [{ number: 1, job_id: 'test' }] });
     e.store.put('settings', 'focus', { kind: 'shortlist' });
-    assert.equal(e.run('context').capabilities.final_submit, 'human_only');
+    assert.equal(e.run('context').capabilities.final_submit, 'batch_grant_only');
     assert.equal(guidance(e.store).next.action, 'choose');
 });
 test('saved final response follows the new shortlist rather than an obsolete passed application', t => {

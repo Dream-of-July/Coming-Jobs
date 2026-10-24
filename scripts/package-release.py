@@ -9,7 +9,7 @@ version=json.loads((root/'plugins/coming-jobs/package.json').read_text())['versi
 name='Coming-Jobs-v'+version
 out=root/'dist';out.mkdir(exist_ok=True)
 archive=out/(name+'.zip')
-allowed_dirs={'.agents','.github','docs','plugins','scripts'}
+allowed_dirs={'.claude-plugin','.agents','.github','docs','plugins','scripts'}
 allowed_files={'README.md','README.zh-CN.md','LICENSE','SECURITY.md','CONTRIBUTING.md','CHANGELOG.md','.gitignore','.gitattributes','Install.command','Open Dashboard.command','Run Demo.command'}
 files=[]
 for p in sorted(root.rglob('*')):

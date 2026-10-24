@@ -80,7 +80,7 @@ test('registered portfolio is required even if the portal marks it optional',t=>
  e.run('checkpoint',checkpointArgs(s,p));const r=e.run('review',{application_id:s.app.id,portal_url:url});assert(!r.ready);assert(r.blockers.some(x=>x.key==='portfolio'));
 });
 test('legacy plan remains compatible but cannot claim complete inventory or portal persistence',t=>{
- const {e,s,p}=setup(t);e.run('checkpoint',checkpointArgs(s,p));const r=e.run('review',{application_id:s.app.id,portal_url:url});assert(r.ready);assert.equal(r.completeness,'legacy_inventory_unverified');assert.equal(r.portal_persistence,'not_verified');
+ const {e,s,p}=setup(t);const args=checkpointArgs(s,p);delete args.portal_saved;e.run('checkpoint',args);const r=e.run('review',{application_id:s.app.id,portal_url:url});assert(!r.ready);assert.equal(r.completeness,'legacy_inventory_unverified');assert.equal(r.portal_persistence,'not_verified');
 });
 function job(n) {return {company:'合成公司',title:n===2?'用户体验工程师':'产品经理',external_id:String(n),url:`https://jobs.example.com/roles/${n}`,jd:'职责：进行用户研究与交互原型设计，分析体验问题。\n要求：能够协作研究和验证解决方案。',track:'campus',mode:'demo',source:'official',observed_at:now()};}
 function collection() {return collectionFixture({company:'合成公司',external_ids:['1','2']});}

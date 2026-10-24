@@ -1,66 +1,44 @@
-# Install Coming Jobs
+# Install Coming Jobs beta.16
 
 [简体中文](INSTALL.zh-CN.md) · [Home](../README.md)
 
-**Optimized exclusively for Codex Desktop.** macOS is the reference environment. The package includes developer scripts; it is not a signed native app or an App Store release.
-
-## Before you start
-
-- Install Codex Desktop and Node.js **22.13+**. The installer uses the Node executable that runs it.
-- Keep your existing candidate workspace. The default is `~/.jobos-next`; renaming the product does not rename or reset this directory.
-
-## Download
-
-**Download with an agent**
-
-Open a task in Codex Desktop and paste this prompt. Coming Jobs does not need to be installed first.
-
-```text
-Please download the Coming Jobs test release ZIP and SHA256SUMS from https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.10, verify the SHA-256 checksum, and extract the ZIP locally. Tell me where it was extracted and how to install it in Codex Desktop.
-```
-
-**Manual download**
-
-Download the ZIP and `SHA256SUMS` from the same [test release](https://github.com/Dream-of-July/Coming-Jobs/releases/tag/v1.0.0-beta.10). Check the downloaded ZIP with `shasum -a 256 Coming-Jobs-v1.0.0-beta.10.zip` and compare the result with `SHA256SUMS`.
-
-## Install
-
-Extract the ZIP. Open `Install.command`, or run inside the extracted folder:
+Requires Node.js 22.13+. Verify the source bundle with `node scripts/build-release.mjs` and `node scripts/check-public.mjs`.
 
 ```sh
-node scripts/install.mjs
+node scripts/install.mjs --host codex --skip-cli
+node scripts/install.mjs --host claude --skip-cli
+node scripts/install.mjs --host both --skip-cli
 ```
 
-The installer verifies bundled integrity metadata, copies the package to a versioned local directory, resolves the host-specific Node/MCP/hook paths, and uses the Codex plugin CLI when available. It does not install Node, download dependencies or reset candidate data. It backs up changed configuration and disables known legacy JobOS plugin entries.
+`--host auto` detects installed CLIs; omission means `codex`. `--home` selects an explicit isolated test home. Codex keeps its versioned `releases/<version>/plugins/coming-jobs` structure and host config, adding only `JOBOS_HOST=codex` to the MCP environment. Claude uses `claude-releases/<version>/plugins/coming-jobs`, an mcpServers wrapper, absolute paths, supported keys and `--host claude` hooks. Both use the chosen home's `.jobos-next`.
 
-If the result is `cli_install_completed`, restart Codex Desktop and open a new task. If it is `personal_marketplace_ready`, enable the Coming Jobs entry from the app's local/personal plugin list, then restart. Approve only the capabilities you intend to use.
+The installer never edits `~/.claude/settings.json` or `~/.codex/config.toml`, including legacy enablement. CLI registration uses an isolated registry (Claude local scope inside its installed release); it does not mean the user's active host has enabled the plugin. Follow the returned local marketplace path in the actual host. For Claude CLI, `claude --plugin-dir "<installed Claude plugin directory>"` is a direct session-only alternative. Restart the host after enablement and verify context host/version/build.
 
-Ask:
+For Codex, inspect the installer's hook_trust result and enable only the four reviewed Coming Jobs commands in the host's hook trust UI. The installer does not silently grant trust. No daily task is created merely by installation.
 
-> Start Coming Jobs. Read my current context and continue from the last confirmed step.
+## Claude permissions
 
-The first `jobos1_context` version/build should match the installer result and the package's `plugins/coming-jobs/release.json`. The download examples above refer to the published beta.10 package; a source install uses its own package version. An already-running conversation can retain an older tool process; copying new files is not a hot reload.
+The installed MCP server key is `jobos_next`. Plugin-scoped names use `mcp__plugin_coming-jobs_jobos_next__jobos1_<tool>`; direct MCP configurations use `mcp__jobos_next__jobos1_<tool>`. Match the names shown by `/mcp`; grant only intended operations. Do not automatically allow every MCP tool, browser origin, upload or final submission. A host permission does not substitute for the itemized coded batch approval.
 
-## Upgrade from JobOS
+Claude uses its built-in browser; open a portal with preview_start(url) and retain tabId. Use native form_input/browser_batch actions (at most eight), find/click for dynamic controls and the fixed read-only script for observations. Never use javascript_tool to write inputs or inject files. Group PDF copies by batch and company while retaining reviewed filenames/bytes; the user drags them in. Login codes, passwords, registration, QR/CAPTCHA and declarations remain user actions. Submit action_summary contains company and sheet code.
 
-The new plugin ID is `coming-jobs`, served by marketplace `coming-jobs`. Data stays in `~/.jobos-next`. Existing `jobos1_` APIs and the `jobos_next` server ID remain compatible. Known old plugin entries are disabled; old source directories and data are not deleted by the installer.
+## Test an isolated installation
 
-Close or hand off an in-progress application before switching versions. Reopen the page and read it before writing again. A local checkpoint does not prove that a recruiting portal saved the same values.
+```sh
+install_home="$(mktemp -d)"
+node scripts/install.mjs --home "$install_home" --host both --skip-cli
+node scripts/smoke-host.mjs --home "$install_home"
+claude plugin validate plugins/coming-jobs
+```
 
-## If something doesn't start
+The smoke runner launches both generated MCP configs for initialize, tools/list and context, and runs actual generated hook commands with synthetic events. CLI validation and transport connection alone do not prove tools discovery or a real portal workflow.
 
-| Result | Action |
-| --- | --- |
-| Node is missing or too old | Install a supported Node release, then rerun the installer. |
-| Marketplace source conflict | Inspect the named source; do not replace an unrelated marketplace. |
-| Same version, different build | Use the matching original archive or a new release version. |
-| Old tool version in a conversation | Restart Codex Desktop and use a new task. |
-| Browser or scheduler unavailable | Check the host capability and binding; do not claim an external action ran. |
+## Migration and rollback
 
-For developer-only integrity inspection, use `node scripts/install.mjs --verify-only`. To check installation in an isolated folder without invoking the Codex CLI, use `node scripts/install.mjs --home /tmp/coming-jobs-install-test --skip-cli`; this is a test deployment, not your active plugin.
+```sh
+node --no-warnings scripts/migration-plan.mjs --workspace "$WORKSPACE_DB"
+```
 
-## Remove or restore
+This explicit read-only SQLite path never constructs Store or changes user data. Review the coded migration plan before a separate migrate call. Migrate exports a private backup before its transaction; migration_revert refuses to overwrite later edits. Imported grants are voided, human steps closed and browser authority discarded. Keep private exports out of Git.
 
-Disable/remove Coming Jobs from Codex's plugin UI to stop loading it. Candidate data and installation backups are separate from the plugin. Do not delete `~/.jobos-next` to uninstall the code. Configuration backups are under `~/.local/share/coming-jobs/install-backups`.
-
-Downloading or extracting the release does not update an existing Desktop installation. Run the installer, then fully quit and reopen Codex Desktop.
+Old version directories remain available. Disable the current plugin in its host before enabling an earlier version. Do not downgrade or restore over an active unknown submit attempt; first inspect the official result. `batch_submit=prefill_only` or `off` prevents automated final submission without deleting data.

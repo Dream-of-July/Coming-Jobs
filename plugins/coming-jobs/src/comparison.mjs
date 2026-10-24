@@ -1,8 +1,10 @@
+import { assessmentCurrent } from './validity.mjs';
 import { assert, hash, now, noSecrets, publicUrl } from './core.mjs';
 import { facts, profileDigest } from './profile.mjs';
 import { saveJobs, assessJobs, collectionStatus, requirements } from './jobs.mjs';
 import { companyMatches, scopeKey, opportunity, previouslyApplied } from './opportunities.mjs';
-import { compareFitAssessments, isRecommendable } from './fit-assessment.mjs';
+import { compareFitAssessments, isRecommendable, normalizeFitAssessment } from './fit-assessment.mjs';
+import {candidateFitContext} from './fit-profile.mjs';
 
 export const COMPARISON_DEFAULTS = Object.freeze({ details: 200, assessments: 200, batch_size: 10 });
 const localDate = (time, timezone) => new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(time));
@@ -39,8 +41,8 @@ function sourceState(store, run, company, scope) {
 function validAssessment(store, run, job) {
     const entry = store.get('comparison_evaluation', evaluationId(run, job), false);
     const a = entry?.assessment;
-    return entry?.job_hash === job.content_hash && entry.profile_hash === profileDigest(store) &&
-        a?.service_object && a.core_deliverable && a.tier && Array.isArray(a.hard_gates) && Array.isArray(a.evidence_refs) ? a : null;
+    return entry?.job_hash === job.content_hash && assessmentCurrent(store,a,job) &&
+        a?.service_object && a.core_deliverable && a.tier && Array.isArray(a.hard_gates) && Array.isArray(a.evidence_refs) ? normalizeFitAssessment({...a,tier:a.requested_tier??a.tier},job,candidateFitContext(store)) : null;
 }
 function scopeView(store, run, company, scope) {
     const collection = store.all('collection').filter(c => companyMatches({ ...company, id: company.company_id }, c.company) && sameScope(c, scope) && c.mode === run.mode)
@@ -418,20 +420,21 @@ function report(store, runId) {
     // Keep the independent snapshot immutable, but never turn an old quota or JD
     // into a current action recommendation merely by reopening its report.
     const guarded = snapshot.items.map(item => {
-        if (item.category !== 'recommendations') return item;
         const company = run.companies.find(c => c.company_id === item.company_id), scope = company.scopes.find(s => sameScope(s, item));
-        const job = store.get('job', item.job_id, false);
-        if (!job || job.content_hash !== item.job_hash || snapshot.profile_hash !== profileDigest(store)) return { ...item, rank: null,
+        const job = store.get('job', item.job_id, false),assessment=job&&validAssessment(store,run,job);
+        if (!job || job.content_hash !== item.job_hash || !assessment) return { ...item, rank: null,
             category: 'qualification_hold', reason: '封存后岗位正文或候选人资料发生变化，需重新评估后再决定行动。' };
-        const decision = assessmentDisposition(store, run, company, scope, job, { ...item, evidence_refs: item.evidence_refs.map(({ text, ...ref }) => ref) });
+        const projected={...item,hard_gates:assessment.hard_gates,tier:assessment.tier,eligibility:assessment.eligibility,gates_complete:assessment.gates_complete};
+        const decision = assessmentDisposition(store, run, company, scope, job, assessment);
         const view = scopeView(store, run, company, scope);
-        if (!view.complete || !view.collection.external_ids.includes(item.external_id)) return { ...item, rank: null,
+        if ((!view.complete || !view.collection.external_ids.includes(item.external_id))&&decision.category==='recommendations') return { ...projected, rank: null,
             category: 'qualification_hold', reason: '封存后当前范围的官网目录、正文或独立评估尚未全部核齐，先补齐范围核验。' };
-        return { ...item, ...decision, rank: decision.category === 'recommendations' ? item.rank : null };
+        return { ...projected, ...decision, rank: decision.category === 'recommendations' ? item.rank : null };
     });
     const result = { ...snapshot, items: guarded,
         ...Object.fromEntries(['recommendations', 'qualification_hold', 'reference_entries', 'misjudged', 'excluded'].map(category => [category, guarded.filter(i => i.category === category)])),
         warnings: guarded.flatMap(i => (i.warnings ?? []).map(reason => ({ company_id: i.company_id, job_id: i.job_id, reason }))),
+        decisive_questions:guarded.flatMap(i=>i.hard_gates.filter(g=>['unknown','conflict'].includes(g.status)&&g.source!=='preferred').map(g=>({company:i.company,job_id:i.job_id,title:i.title,gate:g.gate,question:g.note}))),
         action_checked_at: now(), ...(history ? { diff: withoutScoring(history.diff), previous: { independent_snapshot_hash: history.independent_snapshot_hash,
         previous_run_id: history.previous_run_id, previous_batch_id: history.previous_batch_id, compared_at: history.compared_at } } : {}) };
     return { report: result, markdown: renderComparisonReport(result), cursor: cursor(store, run), budget: publicBudget(store, run) };

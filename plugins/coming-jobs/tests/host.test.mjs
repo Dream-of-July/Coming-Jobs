@@ -25,6 +25,7 @@ test('Coming Jobs hook injects concrete lifecycle instructions only into relevan
 test('bare completed response triggers exactly one end-of-turn repair', t => {
     const e = environment(t);
     hook(event('UserPromptSubmit', { prompt: '使用Coming Jobs' }), e.dir);
+    e.store.put('apply_batch','synthetic',{state:'active'});
     const stop = event('Stop', { last_assistant_message: '已完成。' });
     assert.equal(hook(stop, e.dir).decision, 'block');
     assert.deepEqual(hook(stop, e.dir), {});
@@ -154,3 +155,5 @@ test('same bytes with draft portal name still uploads formal name',async()=>{
  let uploads=0;const tab={url:async()=> 'https://jobs.example.com/form',markHandoff:async()=>{},playwright:{getByLabel:()=>({count:async()=>1,click:async()=>{}}),waitForEvent:async()=>({setFiles:async()=>{uploads++;}})}};
  await fillGroup(tab,{key:'resume',fields:[{key:'cv',type:'file_upload',local_file:'/tmp/候选人-公司-产品经理.pdf',material:{sha256:'same'},locator:{kind:'label',value:'附件'}}]},{origin:'https://jobs.example.com',authorization:{origin:'https://jobs.example.com',expires_at:new Date(Date.now()+60000).toISOString()},saveBefore:async()=>{},saveAfter:async()=>{},readUpload:async()=>({key:'cv',local_sha256:'same',upload_complete:true,file_name:uploads?'候选人-公司-产品经理.pdf':'候选人-审核稿.pdf'})});assert.equal(uploads,1);
 });
+
+test('dashboard JavaScript remains executable after host-name rendering changes',async()=>{const {spawnSync}=await import('node:child_process');const result=spawnSync(process.execPath,['--check',path.join(ROOT,'web/app.js')],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);});

@@ -48,3 +48,8 @@ opportunity 记录官方或用户已明确提供的批次名额，source_ref 保
 评估字段、证据等级、到岗窗口、冲突与七列表格使用 [岗位适配评估](../skills/jobos/references/fit-assessment.md)。report先保存当日独立排序快照，之后才比较上一批；单列误判、待澄清问题与四类差异。正式校招和实习分开。
 
 `jobos1_comparison` 是独立的最多20家公司分批比较入口，使用comparison_key、累计预算与cursor恢复，不读写daily_budget，也不生成日报choose编号。完整调用与合成运行示例见 [公司比较](COMPARISON.md)。用户仍需选定具体岗位并审核材料后进入申请流程。
+
+
+## Dual-host scheduling (beta.16)
+
+provider is codex_heartbeat (requires target_thread_id) or claude_scheduled_task (does not require a Codex thread). Both require a successful real host receipt and provider_task_id; unavailable host scheduling must remain unbound. Daily/background execution is read-only and cannot clear_submit. Unchanged or non-actionable results stay quiet.

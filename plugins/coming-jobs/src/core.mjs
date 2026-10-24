@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 export const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-export const VERSION = '1.0.0-beta.13';
+export const VERSION = '1.0.0-beta.16';
 export const CONTRACT = 'jobos/1';
 export function buildId() {
     try {
@@ -64,7 +64,7 @@ export function portalLocation(value, allowLocal = false) {
 export const SECRET_KEY = /password|passwd|(?:^|[_.])otp(?:$|[_.])|cookie|token|api[_-]?key|id[_-]?card|passport[_-]?number|ssn|verification[_-]?code/i;
 export const SENSITIVE_KEY = /gender|birth|ethnic|religion|disability|health|marital|politic|(?:^|[_.])age(?:$|[_.])/i;
 export function noSecrets(value, key = '') {
-    assert(!SECRET_KEY.test(key), 'secret_not_supported', '密码、验证码、证件号码和会话秘密不进入 Coming Jobs 数据库。', '请由用户直接在官方页面处理该字段。');
+    assert(!SECRET_KEY.test(key), 'secret_not_supported', '密码、验证码、证件号码和会话秘密不进入 Coming Jobs 数据库。', '验证码仅在获准的当前登录流程中临时使用；不要传入普通事实、表单计划或检查点。其他敏感字段由用户直接处理。');
     if (typeof value === 'string') {
         assert(!/-----BEGIN.*PRIVATE KEY-----|\bsk-[A-Za-z0-9_-]{20,}|(?:password|验证码|口令)\s*[:：=]\s*\S+/i.test(value), 'secret_not_supported', '文本可能包含认证秘密，请先移除。');
         assert(!/https?:\/\/\S*[?&#](?:access_token|token|secret|session|auth|code)=/i.test(value), 'private_url', '专属链接不能保存在普通记录中。');
@@ -79,7 +79,16 @@ export function consent(value, ref) {
     assert(value === true && typeof ref === 'string' && ref.trim().length > 0, 'approval_required', '需要本次实际用户确认的依据。', '说明具体资料、接收方和用途；已有适用授权不要重复询问。');
 }
 export function validate(schema, value, at = '参数') {
+    if (schema.anyOf) {
+        assert(schema.anyOf.some(s => { try { validate(s, value, at); return true; } catch { return false; } }), 'invalid_arguments', `${at}不符合允许的字段结构。`);
+        return;
+    }
     if (schema.oneOf) {
+        if (value && typeof value.operation === 'string') {
+            const branch = schema.oneOf.find(s => s.properties?.operation?.const === value.operation);
+            assert(branch, 'invalid_arguments', `${at}.operation 不支持 ${String(value.operation).slice(0,80)}。`);
+            return validate(branch, value, `${at}.${value.operation}`);
+        }
         const valid = schema.oneOf.filter(s => { try {
             validate(s, value, at);
             return true;
@@ -128,3 +137,28 @@ export const A = (items, maxItems = 100) => ({ type: 'array', items, maxItems })
 export const O = (properties, required = Object.keys(properties)) => ({ type: 'object', properties, required, additionalProperties: false });
 export const V = { oneOf: [S(40000), B, { type: 'number' }, A(S(4000), 100)] };
 export const OP = (name, properties = {}, required = Object.keys(properties)) => O({ operation: { const: name }, ...properties }, ['operation', ...required]);
+
+/** Public transport compatibility; strict validation still uses the original registry. */
+export function publicSchema(schema) {
+    if (!schema.oneOf) return schema;
+    const properties = {}, operations = [];
+    for (const branch of schema.oneOf) {
+        operations.push(branch.properties.operation.const);
+        for (const [key, value] of Object.entries(branch.properties)) {
+            if (key === 'operation') continue;
+            if (!properties[key]) properties[key] = value;
+            else if (!equal(properties[key], value)) {
+                const choices = properties[key].anyOf ?? [properties[key]];
+                if (!choices.some(s => equal(s, value))) properties[key] = { anyOf: [...choices, value] };
+            }
+        }
+    }
+    return O({ operation: E(...operations), ...properties }, ['operation']);
+}
+
+export function assertExternalFilename(file) {
+ const name=String(file??'').split(/[\\/]/).pop().normalize('NFKC');
+ assert(name&&!/(审核稿|草稿|待确认|draft|review[ _-]*copy)/i.test(name),'external_filename_required','请使用不含审核稿、草稿等内部标记的正式文件名，保留已审核文件字节。');
+ assert(!/[<>:"/\\|?*\x00-\x1f]/.test(name)&&!['.','..'].includes(name),'external_filename_required','附件名称无效。');
+ return name;
+}
