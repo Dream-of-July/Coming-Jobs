@@ -3,6 +3,7 @@ import { authorizationState } from './authorization.mjs';
 import { coverage, nextQuestion, facts } from './profile.mjs';
 import { now, hash } from './core.mjs';
 import { authenticationContext } from './authentication.mjs';
+import { formInventoryCoverage } from './form-profile.mjs';
 const next = (owner, action, prompt, reply = null) => ({ owner, action, prompt, reply });
 export function guidance(store, applicationId, { background = false } = {}) {
     const batchFlow=batchGuidance(store,background);if(batchFlow)return batchFlow;
@@ -36,6 +37,13 @@ export function guidance(store, applicationId, { background = false } = {}) {
     if(activeId&&store.get('application',activeId,false)?.stage==='voided')activeId=null;
     const app = activeId ? store.get('application', activeId, false) : apps.find(a => !['submitted', 'assessment', 'screening', 'interview', 'offer', 'rejected', 'withdrawn','voided'].includes(a.stage));
     if (app) {
+        if (app.stage === 'cancelled_preparation') {
+            const waiting = (app.application_choices ?? []).map(id => apps.find(a => a.id === id && a.stage === 'preparing')).find(Boolean)
+                ?? apps.find(a => a.stage === 'preparing');
+            if (waiting) return guidance(store, waiting.id, { background });
+            return { stage: '已取消本地准备', application_id: app.id,
+                next: next('user', 'choose', '这份未提交申请的本地准备已取消。可以选择其他合适岗位，或明确恢复原选择后继续。'), can_auto_continue: false };
+        }
         if (app.handoff?.state === 'open' && app.handoff.kind === 'login' && !background && authenticationContext(store).preferred_channels.length)
             return { stage: '继续招聘登录', application_id: app.id,
                 next: next('agent', 'authenticate', '先读取当前登录页并核对已有授权及只读连接器状态；优先邮箱，邮箱不可用时用获准短信。验证码仅在内存临时匹配并填写，实际登录成功后才解除交接。缺读取能力、未收到本次验证码或有协议/图形验证时保存具体缺口，使用对应人工交接，不重复请求验证码。'), can_auto_continue: true };
@@ -43,7 +51,7 @@ export function guidance(store, applicationId, { background = false } = {}) {
             return { stage: '等待你的操作', application_id: app.id,
                 next: next('user', app.handoff.kind, app.handoff.prompt, app.handoff.reply ?? '已完成，继续'), can_auto_continue: false };
         if (['submitted', 'assessment', 'screening', 'interview', 'offer', 'rejected', 'withdrawn','voided'].includes(app.stage)) {
-            const waiting = apps.find(a => a.id !== app.id && a.stage === 'preparing');
+            const waiting = (app.application_choices ?? []).map(id => apps.find(a => a.id === id && a.id !== app.id && a.stage === 'preparing')).find(Boolean) ?? apps.find(a => a.id !== app.id && a.stage === 'preparing');
             if (waiting)
                 return guidance(store, waiting.id, { background });
             return { stage: '投递跟进', application_id: app.id,
@@ -54,12 +62,14 @@ export function guidance(store, applicationId, { background = false } = {}) {
                 next: next('agent', 'verify_outcome', '只读检查官方应聘记录；不要再次点击提交。'), can_auto_continue: true };
         const material = app.resume_id ? store.get('material', app.resume_id, false) : null;
         if (!material)
-            return { stage: '准备材料', application_id: app.id, next: next('agent', 'prepare_materials', '按本次 JD 准备简历和全部投递内容；不要重新询问已确认资料。'), can_auto_continue: true };
+            return { stage: '准备材料', application_id: app.id, next: next('agent', 'prepare_materials', '先读取 material(context) 与现有审核简历，适用就 reuse；需要改写时保留基线逐条对照。按本次 JD 准备全部内容，不重问已确认资料。'), can_auto_continue: true };
         if (!material.approved)
             return { stage: '审核简历', application_id: app.id, next: next('user', 'approve_resume', '请查看这份岗位简历。确认内容后回复“简历确认”；也可以直接指出要改的地方。', '简历确认'), can_auto_continue: false };
         const plan = app.plan_id ? store.get('plan', app.plan_id, false) : null;
         if (!plan)
-            return { stage: '观察表单', application_id: app.id, next: next('agent', 'observe_form', '复用当前浏览器页面，观察全部区域后一次准备填写计划。需要登录时先按已有只读授权尝试邮箱或短信；缺权限、连接器不可读或必要人工动作时才交接。'), can_auto_continue: true };
+            return { stage: '观察表单', application_id: app.id, next: next('agent', 'observe_form', '复用当前浏览器页面，观察全部区域后调用 form_profile 一次匹配已确认资料，再带 observed_fields 准备计划。登录按当前宿主文档与已有授权处理；Claude 验证码由用户输入。'), can_auto_continue: true };
+        if (formInventoryCoverage(store, app, plan).blockers.length)
+            return { stage: '补齐表单资料', application_id: app.id, next: next('agent', 'complete_form_inventory', '补齐已观察但遗漏的必填和有资料的选填项；复用 GitHub、作品集等已确认内容。只对无法从已授权来源查明的必填缺口提问。'), can_auto_continue: true };
         if (!plan.groups.some(g => g.fields.some(f => f.material?.id === material.id && f.material.sha256 === material.asset?.sha256)))
             return { stage: '同步材料', application_id: app.id, next: next('agent', 'update_plan', '本地简历已更新，先同步填写计划、门户附件与相关文案。'), can_auto_continue: true };
         const currentFacts = new Map(facts(store, 'form', `company:${app.company}`).map(f => [f.id, hash(f.value)]));
@@ -68,7 +78,7 @@ export function guidance(store, applicationId, { background = false } = {}) {
         const auth = authorizationState(app, plan);
         const drafts = store.all('draft').filter(d => d.application_id === app.id && d.plan_id === plan.id);
         if (!auth.content_authorized && !plan.groups.some(g => g.fields.some(f => !f.manual) && g.fields.every(f => f.manual || auth.covered_fields.includes(f.key)) && !drafts.some(d => d.group_key === g.key && d.passed)))
-            return { stage: '授权预填', application_id: app.id, next: next('user', 'authorize_prefill', '审核本次接收方、普通资料与附件；确认后将按区域连续填写，最终提交仍由你完成。', '授权填写这些资料'), can_auto_continue: false };
+            return { stage: '核对已有授权', application_id: app.id, next: next('agent', 'check_authorization', '先核对当前会话是否已有覆盖本次接收方、资料与用途的用户授权；有则引用原指令调用 authorize 后连续填写。确实缺少时才 handoff(host_permission) 说明具体缺口并请求一次授权，不能凭选择岗位推定外部写入权限。'), can_auto_continue: true };
         if (auth.content_authorized && !auth.lease_active)
             return { stage: '恢复填写', application_id: app.id, next: next('agent', 'renew_lease', '重新观察页面，使用 authorize(reuse=true) 续上执行占用；已有内容授权不重复询问。'), can_auto_continue: true };
         if (app.review?.ready && Date.now() - Date.parse(app.review.reviewed_at) < 15 * 60000)

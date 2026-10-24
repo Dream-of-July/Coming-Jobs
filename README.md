@@ -4,15 +4,23 @@
 
 A local career companion for reusable candidate context, complete official job descriptions, verified resumes and content-bound batch approval.
 
-**1.0.0-beta.16 supports Codex and Claude host profiles.** This source branch is a test build, not a published beta.16 download. See [published releases](https://github.com/Dream-of-July/Coming-Jobs/releases) for actual downloadable versions. This is an independent project, not an OpenAI or Anthropic product.
+**Source version: 1.0.0-beta.18, for Codex and Claude.** Prepare up to ten applications with durable progress, isolated failures and grouped user handoff. Source versions and [published downloads](https://github.com/Dream-of-July/Coming-Jobs/releases) are separate. This is an independent project, not an OpenAI or Anthropic product.
 
-## A quieter application batch
+## Prepare five to ten applications in one queue
+
+The queue keeps one browser writer active, continues healthy applications when a portal needs attention, and skips completed drafts until the final grouped handoff. Work survives reopening the same workspace/session. A pending or unknown browser result is read back before any remaining write; an unknown submission is never automatically repeated.
+
+`apply_batch(next/resume/defer/retry)` provides concrete next actions, fenced claims, per-phase retry limits and backoff. Routine calls use `context(scope=batch)` for progress and `context(scope=execution,application_id)` for one current field batch, avoiding repeated full profile/history payloads. The existing complete context remains available for final review.
+
+Ordinary controls use semantic locators, original-value protection and a final batch readback. The measured synthetic eight-field path uses 25 direct browser API calls, compared with 40 in beta.17. This measures bridge calls, not real recruitment-site elapsed time. Read-only waits are bounded; native writes are awaited and depend on the host's cancellation/timeout support.
 
 Reuse an approved target list and confirmed facts. Collect necessary login, permission and manual-upload steps into one checkpoint. Review an itemized sheet containing jobs, recipients, exact/transformed/composed values, actual PDF hashes, agreements, manual declarations, warnings and blockers. Reply **“批准 S-ABCDEF 全部”** or name selected numbers.
 
-The plugin grants authority in one transaction, then rechecks each item before releasing exactly one foreground submit click. It first records an unknown outcome and a submit attempt; changed items pause, while unaffected approved items continue. Outcomes retain the actual submitted resume SHA. Normal batches budget two touchpoints: grouped human checks and coded approval. First-time target/template onboarding and newly appearing legal, verification or content changes can require additional decisions.
+Preparation groups human checks and coded content approval instead of repeatedly asking about unchanged items. After all runnable drafts are prepared, the user reviews and submits them. First-time target/template onboarding and newly appearing legal, verification or content changes can require additional decisions. If automatic submission was explicitly enabled, the plugin rechecks each approved item before releasing exactly one foreground submit click; it records an unknown outcome and attempt before that click, and retains the actual submitted resume SHA.
 
-`batch_submit` defaults to `on`; `prefill_only` fills without submitting, and `off` restores manual submission. Passwords, registration, QR challenges, legal declarations and assessments remain user-owned; a graphical/slider CAPTCHA is handed off as that single action while the rest of the batch continues. Claude login codes are entered by the user; its JavaScript tool is read-only and files are grouped for manual drag/drop. Codex retains the explicitly authorized email-first login policy.
+New workspaces default to **`batch_submit=prefill_only`**: prepare and verify every runnable draft, then let the user submit. Existing explicit preferences are retained. `on` requires explicit opt-in plus the content-bound batch approval described above; `off` also keeps final submission manual. Passwords, registration, QR challenges, legal declarations and assessments remain user-owned; a graphical/slider CAPTCHA is handed off as that single action while the rest of the batch continues. Claude login codes are entered by the user; its JavaScript tool is read-only and files are grouped for manual drag/drop. Codex retains the explicitly authorized email-first login policy.
+
+The previously separate form-profile, OTP, company-choice and résumé-quality changes are integrated. Known optional links are included, suitable approved résumés are reused, company choices preserve quota/order, and repeated batch approval retains the verified editorial review of unchanged content.
 
 ## Install
 
@@ -23,7 +31,7 @@ node scripts/build-release.mjs
 node scripts/install.mjs --host both --skip-cli
 ```
 
-Follow the returned host-specific enablement instructions. The installer leaves user settings untouched. Claude can load the generated directory with `--plugin-dir`. Both hosts retain the `jobos1_`, `jobos/1`, `JOBOS_NEXT_HOME` and existing private workspace contract. Installation does not migrate candidate data or create a working schedule.
+Follow the returned host-specific enablement instructions, restart the active host, and confirm that its context reports `1.0.0-beta.18` and the newly built bundle. Updating the repository does not replace an already loaded plugin. The installer leaves user settings untouched. Claude can load the generated directory with `--plugin-dir`. Both hosts retain the `jobos1_`, `jobos/1`, `JOBOS_NEXT_HOME` and existing private workspace contract. Installation does not migrate candidate data or create a working schedule.
 
 ## Materials, privacy and validation
 

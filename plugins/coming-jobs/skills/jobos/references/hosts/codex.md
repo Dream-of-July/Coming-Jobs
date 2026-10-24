@@ -6,7 +6,9 @@ Codex：登录先复用已获准会话；初始化一次申请邮箱/短信只�
 
 浏览器使用 Codex CUA REPL 与当前宿主 Tab API，按工具初始化文档建立 Tab。复用同一个页面和标签；有未提交页时，markHandoff 若存在须在真正停止前续上，不能把本地 checkpoint 当门户保存。
 
-普通字段使用 src/host-batch.mjs 的 executeOrdinaryBatch：传入当前 plan/grant、readField/writeField/readUpload、saveBefore/saveAfter 与已核验的 savePortal。每批最多八个；异常也保存逐字段结果。日期和动态下拉单独处理；上传后比较受保护字段，之后再编辑。对外提交不能绑定到 savePortal。
+普通字段使用 src/host-batch.mjs 的 executeOrdinaryBatch(tab, checkpoint准备回执, {settle})：只传持久化的 targets、before、scope 和 grant，每批最多八个；全部写入后统一回读，异常后仅只读恢复。日期、动态下拉及附件单独处理；上传后比较受保护字段，再编辑。需要 readField/writeField/readUpload、saveBefore/saveAfter 或 savePortal 回调的宿主适配使用 src/browser.mjs 的 fillGroup；它与 executeOrdinaryBatch 是不同接口，不能把最终提交绑定到 savePortal。
+
+连续岗位由 apply_batch(next/resume/defer) 调度，详见 [application-queue](../application-queue.md)。普通循环用 context(scope=execution)，状态概览用 scope=batch。executeOrdinaryBatch 可设置 maxDurationMs/readTimeoutMs；这是有界只读等待与协作预算，不会取消仍在执行的原生写入。fillGroup 的兼容回调必须使用宿主支持的有界等待；协议提供 readAgreement，只读取得实际文本。
 
 只读工作包使用 gpt-5.6-luna、medium，最多三个并受宿主容量限制。worker_available 是通用入口，luna_available 保留兼容。packet/cache/input hash 与固定 Codex 样例一致；主 Agent 复核结果后落库，共享页面、上传和最终提交不委派。详见 [lightweight](../lightweight.md)。
 

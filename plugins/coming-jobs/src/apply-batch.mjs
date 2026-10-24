@@ -1,15 +1,16 @@
 import {readFileSync,mkdirSync,writeFileSync} from 'node:fs';
 import path from 'node:path';
 import {currentHost} from './host.mjs';
-import {authorize} from './applications.mjs';
-import {approveMaterial,materialApproved,assertMaterialCurrent} from './materials.mjs';
+import {authorize,assertPlanCurrent} from './applications.mjs';
+import {approveMaterial,materialApproved,assertMaterialCurrent,materialReviewDigest} from './materials.mjs';
 import {fieldDigest,authorizationState} from './authorization.mjs';
 import {itinerary} from './execution.mjs';
 import {assert,consent,hash,id,now} from './core.mjs';
 import {createApplication,readAssessment,collectionStatus} from './jobs.mjs';
 import {assessmentCurrent} from './validity.mjs';
 import {isRecommendable} from './fit-assessment.mjs';
-import {jobOpportunity} from './opportunities.mjs';
+import {companyMatches,jobOpportunity,scopeKey} from './opportunities.mjs';
+import {batchMode,applicationQueueStatus,applicationQueueOperation,applicationQueueGuidance} from './apply-queue.mjs';
 export function targetStatus(store,list){
  const needs_decision=[],refresh=[];
  for(const item of list.items){
@@ -27,32 +28,74 @@ function targets(store,a){
  if(a.confirmed){consent(a.confirmed,a.user_ref);assert(a.numbers?.length&&a.numbers.every(n=>list.items.some(i=>i.number===n)),'invalid_selection','选择目标清单中的编号。');const status=targetStatus(store,list);assert(!status.needs_decision.some(i=>a.numbers.includes(i.number)),'targets_changed','变化项需要在下一张审批单中决定。');list=store.put('target_list',list.id,{...list,approved_numbers:[...new Set(a.numbers)],approved_ref:a.user_ref});}
  return targetStatus(store,list);
 }
-const mode=store=>store.get('settings','preferences',false)?.batch_submit??'on';
+const mode=batchMode;
 const batchApps=(store,b)=>b.application_ids.map(k=>store.get('application',k));
 const liveGrant=(store,b)=>b.grant_id?store.get('apply_grant',b.grant_id,false):null;
+function assertApprovalCapacity(store,items,retained){
+ const companies=store.all('company'),quotas=new Map();
+ const quotaKey=job=>{const company=companies.find(record=>companyMatches(record,job.company));return company?hash([company.id,scopeKey(job),job.mode??'live']):null;};
+ for(const item of items){
+  const job=store.get('job',item.job_id),key=quotaKey(job);
+  assert(key,'opportunity_unverified','先登记并核验当前公司的招聘范围和名额。');
+  if(!quotas.has(key))quotas.set(key,{applications:new Set(),q:jobOpportunity(store,job)});
+  quotas.get(key).applications.add(item.application_id);
+ }
+ // A scoped approval keeps other current approvals in the same allowance.
+ // Unapproved drafts reserve preparation capacity but have not used a submission.
+ for(const item of retained){
+  if(store.get('application',item.application_id).stage!=='preparing')continue;
+  const group=quotas.get(quotaKey(store.get('job',item.job_id)));
+  group?.applications.add(item.application_id);
+ }
+ assert([...quotas.values()].every(({applications,q})=>q.state==='available'&&q.remaining!==null&&q.remaining>=applications.size),
+  'opportunity_unverified','先刷新官方规则与名额，并核对本范围仍有效的已批准项目。');
+}
+function itemFingerprint(item,{legacyMaterials=false}={}){
+ const material=value=>{if(!legacyMaterials||!value)return value;const {review_digest,...prior}=value;return prior;};
+ return hash({application_id:item.application_id,job_id:item.job_id,job_hash:item.job_hash,job_url:item.job_url,origin:item.origin,plan_hash:item.plan_hash,
+  fields:legacyMaterials?item.fields.map(field=>({...field,material:material(field.material)})):item.fields,
+  agreements:item.agreements,manual:item.manual,parsed:item.parsed,resume:material(item.resume),gates_digest:item.gates_digest,rules:item.rules});
+}
+function matchesApprovedItem(current,approved){
+ if(current.fingerprint===approved.fingerprint)return true;
+ const materials=[approved.resume,...approved.fields.map(field=>field.material)].filter(Boolean);
+ if(materials.some(material=>Object.hasOwn(material,'review_digest')))return false;
+ // Legacy grants lack a historical mapping digest. Compare their original
+ // scope without inventing one; new approvals bind the full material state.
+ return itemFingerprint(current,{legacyMaterials:true})===approved.fingerprint;
+}
 function currentItem(store,b,app,number){
  const job=store.get('job',app.job_id),plan=app.plan_id?store.get('plan',app.plan_id):null,m=app.resume_id?store.get('material',app.resume_id):null;
  if(m?.asset){store.assetPath(m.asset);assertMaterialCurrent(store,m);}
+ if(plan)assertPlanCurrent(store,app,plan,{allowUnapprovedRendered:true});
  const assessment=readAssessment(store,job),quota=jobOpportunity(store,job),blockers=[];
  if(!plan)blockers.push('plan_required');if(!m?.asset||!materialApproved(store,m)&&!m.render_receipt?.passed)blockers.push('resume_review_required');
  if(job.content_hash!==app.job_snapshot.content_hash)blockers.push('jd_changed');
  if(!assessmentCurrent(store,assessment,job)||!isRecommendable(assessment))blockers.push('qualification_changed');
  if(['exhausted','closed'].includes(quota.state))blockers.push('quota_unavailable');
- const fields=plan?.groups.flatMap(g=>g.fields.map(f=>({key:f.key,label:f.label,kind:f.manual?'manual':f.type==='file_upload'?'attachment':f.value_kind??'composed',value:f.manual?null:f.value,digest:fieldDigest(f),required:f.required,type:f.type,material:f.material?{sha256:f.material.sha256,bytes:f.material.bytes,name:f.material.name}:null})))??[];
+ const fields=plan?.groups.flatMap(g=>g.fields.map(f=>({key:f.key,label:f.label,kind:f.manual?'manual':f.type==='file_upload'?'attachment':f.value_kind??'composed',value:f.manual?null:f.value,digest:fieldDigest(f),required:f.required,type:f.type,material:f.material?{sha256:f.material.sha256,bytes:f.material.bytes,name:f.material.name,review_digest:materialReviewDigest(store,store.get('material',f.material.id))}:null})))??[];
  const agreements=plan?.groups.flatMap(g=>g.fields.filter(f=>f.type==='agreement').map(f=>({key:f.key,title:f.agreement_title,text_hash:f.text_hash,excerpt:f.excerpt})))??[];
  const manual=plan?.groups.flatMap(g=>g.fields.filter(f=>f.manual).map(f=>({key:f.key,label:f.label,required:f.required})))??[];
  const item={number,application_id:app.id,company:app.company,title:app.title,job_id:job.id,job_hash:job.content_hash,job_url:job.url,origin:plan?.origin??null,plan_hash:plan?.content_hash??null,
-   fields,agreements,manual,parsed:(app.parse_changes??[]).filter(c=>c.kind==='portal_parsed'),resume:m?.asset?{sha256:m.asset.sha256,name:m.asset.name,bytes:m.asset.bytes,height_pt:m.render_receipt?.height_pt??null,screenshot:m.render_receipt?.screenshot??null,headline:m.composition?.headline??m.content?.headline??'',summary:m.composition?.summary??'',selection_paths:m.composition?.selection_paths??[]}:null,
+   fields,agreements,manual,parsed:(app.parse_changes??[]).filter(c=>c.kind==='portal_parsed'),resume:m?.asset?{sha256:m.asset.sha256,name:m.asset.name,bytes:m.asset.bytes,review_digest:materialReviewDigest(store,m),height_pt:m.render_receipt?.height_pt??null,screenshot:m.render_receipt?.screenshot??null,headline:m.composition?.headline??m.content?.headline??'',summary:m.composition?.summary??'',selection_paths:m.composition?.selection_paths??[]}:null,
    selection_claims:m?.composition?.selection_claims??[],gates_digest:hash(assessment?.hard_gates??[]),rules:{limit:quota.remaining===null?null:quota.remaining+quota.used,can_change:quota.can_change??null,order:quota.volunteer_order??null,deadline:quota.deadline??null,source:quota.rule_source_ref??null},
    blockers,warnings:[...(m?.composition?.warnings??[]),...(quota.state==='needs_verification'?['agent_refresh_rules']:[])]};
  // Availability timestamps, review time and writer leases are refreshed by the agent.
- item.fingerprint=hash({application_id:item.application_id,job_id:item.job_id,job_hash:item.job_hash,job_url:item.job_url,origin:item.origin,plan_hash:item.plan_hash,fields:item.fields,agreements:item.agreements,manual:item.manual,parsed:item.parsed,resume:item.resume,gates_digest:item.gates_digest,rules:item.rules});
+ item.fingerprint=itemFingerprint(item);
  return item;
 }
 function sheet(store,b,issued=now(),applicationId=null){
  const issuedMs=Date.parse(issued);assert(Number.isFinite(issuedMs)&&issuedMs<=Date.now()+5000,'invalid_sheet_time','审批单时间无效。');
- let items=batchApps(store,b).filter(a=>a.stage==='preparing').map(app=>currentItem(store,b,app,b.application_ids.indexOf(app.id)+1));
- if(applicationId)items=items.filter(i=>i.application_id===applicationId);
+ if(applicationId)assert(b.application_ids.includes(applicationId),'batch_scope','申请不属于批次。');
+ const items=batchApps(store,b).filter(a=>a.stage==='preparing'&&(!applicationId||a.id===applicationId)).map(app=>{
+  const number=b.application_ids.indexOf(app.id)+1;
+  try{return currentItem(store,b,app,number);}catch(error){
+   // A broken material or stale record on one job must not hide other jobs.
+   const diagnostic_code=/^[a-z][a-z0-9_]{0,79}$/i.test(error.code??'')?error.code.toLowerCase():'item_unavailable';
+   return {number,application_id:app.id,company:app.company,title:app.title,job_id:app.job_id,fields:[],agreements:[],manual:[],parsed:[],resume:null,selection_claims:[],
+    blockers:['item_unavailable'],warnings:[],diagnostic_code,fingerprint:hash([app.id,app.plan_id,app.resume_id,diagnostic_code])};
+  }
+ });
  const selections=item=>new Map(item.selection_claims.length?item.selection_claims.map(c=>[c.path,c.digest]):(item.resume?.selection_paths??[]).map(p=>[p,p]));
  for(const item of items){const a=selections(item);if(items.some(other=>{if(other===item)return false;const b=selections(other);return [...new Set([...a.keys(),...b.keys()])].filter(p=>a.get(p)!==b.get(p)).length<3;}))item.warnings.push('selection_difference_below_3');}
  const content_hash=hash(items.map(i=>[i.application_id,i.fingerprint]));
@@ -81,25 +124,36 @@ export function applyBatch(store,a){
  if(a.operation==='start'){
   let ids=a.application_ids;
   if(a.target_list_id){const list=store.get('target_list',a.target_list_id),status=targetStatus(store,list),numbers=a.numbers??list.approved_numbers;assert(numbers.length&&numbers.every(n=>list.approved_numbers.includes(n)),'target_approval_required','仅开始已批准目标。');assert(!status.needs_decision.some(x=>numbers.includes(x.number)),'targets_changed','变化项先进入审批单决定栏。');ids=numbers.map(n=>{const item=list.items.find(i=>i.number===n);return createApplication(store,item.job_id,list.approved_ref,item.job_hash).id;});}
-  assert(ids?.length&&ids.length<=5&&new Set(ids).size===ids.length,'batch_scope','每批 1–5 个不同申请。');
+  assert(ids?.length&&ids.length<=10&&new Set(ids).size===ids.length,'batch_scope','每批 1–10 个不同申请。');
   const apps=ids.map(k=>store.get('application',k));assert(apps.every(app=>app.stage==='preparing'),'application_locked','只对准备中的申请开批。');
   assert(!store.all('apply_batch').some(b=>b.state==='active'&&b.application_ids.some(k=>ids.includes(k))),'batch_busy','申请已属于活跃批次，请恢复原批次。');
   const b=store.put('apply_batch',id('apply'),{state:'active',application_ids:ids,session_id:a.session_id,host:currentHost().id,target_list_id:a.target_list_id??null,created_at:now(),sheet_nonce:id('sheet'),grant_id:null});
   for(const app of apps)store.put('application',app.id,{...app,apply_batch_id:b.id});store.put('settings','active_apply_batch',{batch_id:b.id});
-  const uploads=currentHost().id==='claude'?apps.flatMap((app,i)=>{const m=app.resume_id?store.get('material',app.resume_id):null;if(!m?.asset)return [];const dir=path.join(store.home,'uploads',b.id,String(i+1).padStart(2,'0')+'-'+app.company.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_'));mkdirSync(dir,{recursive:true,mode:0o700});const file=path.join(dir,m.asset.name);writeFileSync(file,readFileSync(store.assetPath(m.asset)),{mode:0o600});return [{application_id:app.id,company:app.company,file,sha256:m.asset.sha256}];}):[];
-  return {...b,uploads,portal_checks:apps.map(app=>{const origin=new URL(app.job_snapshot.url).origin,session=store.get('portal_session',hash([currentHost().id,origin]),false);return {origin,state:session&&Date.now()-Date.parse(session.last_success_at)<30*60000?'readback_session':'inspect_login',login_method:session?.login_method??null};})};
+  const uploads=[],upload_failures=[];
+  if(currentHost().id==='claude')for(const [i,app] of apps.entries()){
+   try{
+    const m=app.resume_id?store.get('material',app.resume_id):null;if(!m?.asset)continue;
+    const bytes=readFileSync(store.assetPath(m.asset));
+    const dir=path.join(store.home,'uploads',b.id,String(i+1).padStart(2,'0')+'-'+app.company.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_'));
+    mkdirSync(dir,{recursive:true,mode:0o700});const file=path.join(dir,m.asset.name);writeFileSync(file,bytes,{mode:0o600});
+    uploads.push({application_id:app.id,company:app.company,file,sha256:m.asset.sha256});
+   }catch(error){
+    const code=['asset_missing','asset_changed','not_found'].includes(error.code)?error.code:'upload_preparation_failed';
+    upload_failures.push({application_id:app.id,company:app.company,code,action:'repair_material'});
+   }
+  }
+  return {...b,queue:applicationQueueStatus(store,b),uploads,upload_failures,portal_checks:apps.map(app=>{const origin=new URL(app.job_snapshot.url).origin,session=store.get('portal_session',hash([currentHost().id,origin]),false);return {origin,state:session&&Date.now()-Date.parse(session.last_success_at)<30*60000?'readback_session':'inspect_login',login_method:session?.login_method??null};})};
  }
  const b=store.get('apply_batch',a.batch_id);
  if(a.operation==='sheet')return sheet(store,b,now(),a.application_id);
- if(a.operation==='status')return {...b,grant:liveGrant(store,b),human:humanStatus(store,b),applications:batchApps(store,b).map(app=>({id:app.id,stage:app.stage}))};
+ if(a.operation==='status')return {...b,queue:applicationQueueStatus(store,b),grant:liveGrant(store,b),human:humanStatus(store,b),applications:batchApps(store,b).map(app=>({id:app.id,stage:app.stage}))};
+ if(['next','defer','retry','resume'].includes(a.operation))return applicationQueueOperation(store,b,a);
  assert(b.state==='active','batch_inactive','批次已结束或撤销。');
  if(a.operation==='approve'){
   foreground(store,a);consent(a.confirmed,a.user_ref);noSecretsReply(a.reply);
   assert(a.session_id===b.session_id&&b.host===currentHost().id,'batch_session_mismatch','必须在发起批次的宿主会话批准。');
   const view=sheet(store,b,a.sheet_issued_at,a.application_id);assert(Date.parse(view.expires_at)>Date.now(),'sheet_expired','审批单超过两小时，重新生成当前摘要。');assert(a.sheet_code===view.code,'sheet_changed','审批单内容已变化，只对变化范围重新审批。');
   const numbers=selectedNumbers(a,view),items=view.items.filter(i=>numbers.includes(i.number));assert(items.every(i=>!i.blockers.length),'sheet_blocked','批准项目仍有阻塞，先修复或排除。');
-  const quotas=new Map();for(const item of items){const job=store.get('job',item.job_id),key=hash([job.company,job.track,job.campaign]),q=jobOpportunity(store,job);quotas.set(key,{count:(quotas.get(key)?.count??0)+1,q});}
-  assert([...quotas.values()].every(({count,q})=>q.state==='available'&&q.remaining!==null&&q.remaining>=count),'opportunity_unverified','先刷新官方规则与名额，不需要重复询问适配。');
   const deadline=Math.min(Date.now()+12*3600000,...items.flatMap(i=>[store.get('job',i.job_id).deadline,i.rules.deadline]).filter(Boolean).map(Date.parse));assert(deadline>Date.now(),'campaign_closed','批次已超过截止时间。');
   const old=liveGrant(store,b),approved_at=now(),expires_at=new Date(deadline).toISOString();
   // A scoped sheet replaces only its own scope. Retained items keep the original
@@ -109,10 +163,11 @@ export function applyBatch(store,a){
    if(item.application_id===a.application_id)continue;const app=store.get('application',item.application_id),authority=item.authorization??old;
    if(!['preparing','unknown'].includes(app.stage))continue;
    const expiry=Math.min(Date.parse(old.expires_at),Date.parse(authority.expires_at));let reason=app.stage==='unknown'||expiry>Date.now()?null:'grant_expired';
-   if(!reason&&app.stage==='preparing')try{const current=currentItem(store,b,app,item.number);if(current.fingerprint!==item.fingerprint||current.blockers.length)reason='approved_item_changed';}catch(error){reason=error.code??'item_unverified';}
+   if(!reason&&app.stage==='preparing')try{const current=currentItem(store,b,app,item.number);if(!matchesApprovedItem(current,item)||current.blockers.length)reason='approved_item_changed';}catch(error){reason=error.code??'item_unverified';}
    if(reason)newPauses.push({application_id:app.id,reason,paused_at:now()});
    else retained.push({...item,authorization:{sheet_code:authority.sheet_code,mode:authority.mode,approved_at:authority.approved_at,expires_at:new Date(expiry).toISOString()}});
   }
+  assertApprovalCapacity(store,items,retained);
   if(old?.state==='active')store.put('apply_grant',old.id,{...old,state:'superseded'});
   const approvedItems=items.map(i=>({...i,authorization:{sheet_code:view.code,mode:mode(store),approved_at,expires_at}}));
   const allItems=[...retained,...approvedItems].sort((a,b)=>a.number-b.number);
@@ -146,8 +201,8 @@ export function applyBatch(store,a){
   assert(app.stage==='preparing','submit_once','该申请已提交或结果不明，不重复点击。');const approved=grant.items.find(i=>i.application_id===app.id);assert(approved,'item_not_approved','该项目没有列入本次批准。');
   const authority=approved.authorization??grant;assert(authority.mode==='on','submit_disabled','此项目仅获准预填，不能由批次提交。');assert(Date.parse(authority.expires_at)>Date.now(),'grant_expired','此项目的原始批准已过期，局部审批不能延长其他项目授权。');
   assert(!(b.paused_items??[]).some(p=>p.application_id===app.id),'item_paused','变化项已暂停，需要更新计划并重新逐批审批。');
-  const current=currentItem(store,b,app,approved.number);assert(current.fingerprint===approved.fingerprint&&!current.blockers.length,'approved_item_changed','该项 JD、资料、来源、协议、简历或资格已变化，暂停此项。');
-  const plan=store.get('plan',app.plan_id),m=store.get('material',app.resume_id);assert(materialApproved(store,m)&&m.asset.sha256===approved.resume.sha256,'material_changed','简历哈希与批准内容不一致。');
+  const current=currentItem(store,b,app,approved.number);assert(matchesApprovedItem(current,approved)&&!current.blockers.length,'approved_item_changed','该项 JD、资料、来源、协议、简历或资格已变化，暂停此项。');
+  const plan=store.get('plan',app.plan_id),m=store.get('material',app.resume_id);assertPlanCurrent(store,app,plan);assert(materialApproved(store,m)&&m.asset.sha256===approved.resume.sha256,'material_changed','简历哈希与批准内容不一致。');
   assert(plan.groups.flatMap(g=>g.fields).filter(f=>f.material).every(f=>{const live=store.get('material',f.material.id);return materialApproved(store,live)&&live.asset.sha256===f.material.sha256;}),'material_changed','附件哈希已变化或未批准。');
   assert(authorizationState(app,plan).content_authorized&&app.authorization.session_id===a.session_id&&authorizationState(app,plan).lease_active,'approval_required','预填内容或写入租约不匹配。');
   const recent=time=>!!time&&Date.now()-Date.parse(time)>=-5000&&Date.now()-Date.parse(time)<5*60000;
@@ -169,22 +224,7 @@ export function applyBatch(store,a){
 function noSecretsReply(value){assert(typeof value==='string'&&!/(?:验证码|password|口令)\s*[:：=]\s*\S+|https?:\/\/\S*[?&](?:token|code|auth)=/i.test(value),'secret_not_supported','批次记录不能包含登录秘密或专属链接。');}
 export function batchGuidance(store,background=false){
  if(background)return null;const active=store.get('settings','active_apply_batch',false),b=active?.batch_id?store.get('apply_batch',active.batch_id,false):null;if(!b||b.state!=='active')return null;
- const human=humanStatus(store,b),grant=liveGrant(store,b),apps=batchApps(store,b).filter(a=>a.stage!=='voided');
- const scoped=grant?.state==='active'?apps.filter(a=>grant.items.some(i=>i.application_id===a.id)):apps;
- const runnable=scoped.filter(a=>!(b.paused_items??[]).some(p=>p.application_id===a.id)).filter(a=>!human.steps.some(h=>!h.application_id||h.application_id===a.id));let app=runnable.find(a=>a.stage==='unknown')??runnable.find(a=>a.stage==='preparing');
- const next=(owner,action,prompt)=>({stage:'批次推进',batch_id:b.id,application_id:app?.id??null,human_queue:human.steps,repeat_prompt:false,can_auto_continue:owner==='agent',next:{owner,action,prompt}});
- if(!app&&human.steps.length)return next('user','human_checkpoint',human.prompt);
- if(!app&&(b.paused_items??[]).length)return next('agent','build_sheet','保留变化项暂停状态；只对需要决定的变化生成下一份审批单，继续其他已批准项目。');
- if(!app)return next('agent','verify_batch_outcomes','只读核验本批结果并更新记录。');
- if(app.stage==='unknown')return next('agent','verify_outcome','只读核验已点击的申请结果，禁止再次提交。');
- if(!app.resume_id||!app.plan_id)return next('agent','prepare_materials','准备已批准目标的材料、字段来源和完整计划。');
- if(!grant||grant.state!=='active')return next('agent','build_sheet','生成逐项审批单，将人工步骤合并后一次请求带批次码的批准。');
- if(!grant.items.some(i=>i.application_id===app.id))return next('agent','continue_approved_items','该项目未获批准，保持暂停并推进已批准项目。');
- const authority=grant.items.find(i=>i.application_id===app.id)?.authorization??grant;
- if(Date.parse(grant.expires_at)<=Date.now()||Date.parse(authority.expires_at)<=Date.now())return next('agent','build_sheet','此项目的原始批准已过期，生成当前范围审批单，不扩展其他项目授权。');
- if(app.review?.ready)return mode(store)==='on'&&grant.mode==='on'&&authority.mode==='on'?next('agent','clear_submit','调用 clear_submit 重新核验，成功后仅点击一次并只读记录结果。'):next('user','human_submit','预填和回读已完成。按当前模式由本人检查并提交。');
- const plan=store.get('plan',app.plan_id);if(!authorizationState(app,plan).lease_active)return next('agent','renew_lease','复用现有字段授权续租，不重复询问。');
- return next('agent','fill_groups','连续填写已授权区域，上传后比较解析字段、保存门户并回读，最后生成新鲜 review。');
+ return applicationQueueGuidance(store,b,humanStatus(store,b));
 }
 /** Called after a failed mutation has rolled back; only an already approved item may pause. */
 export function persistSubmitPause(store,a,error){

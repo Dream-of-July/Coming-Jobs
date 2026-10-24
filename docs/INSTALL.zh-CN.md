@@ -9,7 +9,7 @@ node scripts/build-release.mjs
 node scripts/install.mjs --host both --skip-cli
 ```
 
-按结果中的目录，在对应宿主手动启用来源和插件；Claude CLI 也可 `claude --plugin-dir "<返回的 Claude 插件目录>"`。自动 CLI 注册位于隔离登记目录，不等于当前桌面宿主已启用。Codex hooks 需要本人在宿主审核四条命令的 trust 状态。重启后以实际 context 返回的 host/version/build 验收。
+按结果中的目录，在对应宿主手动启用来源和插件；Claude CLI 也可 `claude --plugin-dir "<返回的 Claude 插件目录>"`。自动 CLI 注册位于隔离登记目录，不等于当前桌面宿主已启用。Codex hooks 需要本人在宿主审核四条命令的 trust 状态。重启后以实际 context 返回的 host/version/build 验收，其中版本应为 `1.0.0-beta.18`。更新仓库不会热替换已经加载的插件；已有求职资料和旧版本目录会保留。GitHub 已发布下载包可能落后于当前源码。
 
 Claude 插件工具权限名：`mcp__plugin_coming-jobs_jobos_next__jobos1_<tool>`；直接 MCP 配置使用 `mcp__jobos_next__jobos1_<tool>`。以 `/mcp` 显示为准，只批准需要的权限，不用全局放行取代批次审批。
 

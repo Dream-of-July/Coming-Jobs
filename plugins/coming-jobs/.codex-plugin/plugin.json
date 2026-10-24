@@ -1,6 +1,6 @@
 {
   "name": "coming-jobs",
-  "version": "1.0.0-beta.17",
+  "version": "1.0.0-beta.18",
   "description": "A local-first career companion for Codex and Claude. / 支持 Codex 与 Claude 的本地求职助手。",
   "skills": "./skills",
   "mcpServers": "./.mcp.json",

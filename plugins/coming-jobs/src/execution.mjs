@@ -3,8 +3,16 @@ import {claudeProcedure} from './hosts/claude-procedure.mjs';
 import { experience } from './experience.mjs';
 import { assert, hash, now, noSecrets, equal, iso } from './core.mjs';
 import { coveredFields } from './authorization.mjs';
-import { assertMaterialCurrent } from './materials.mjs';
-import { verifyField, checkpoint } from './applications.mjs';
+import { assertPlanCurrent, verifyField, checkpoint } from './applications.mjs';
+
+// Compare the control's original state, not incidental reader metadata. A newer
+// reader may add selected/read_state without the user changing a text value.
+function sameOriginal(field, current, original) {
+    if (!current || !original || current.read_state === 'unreadable' || original.read_state === 'unreadable') return false;
+    if (field.type === 'file_upload') return equal(current, original);
+    if (original.value === undefined || !equal(current.value, original.value)) return false;
+    return field.type !== 'portal_select' || ['selected', 'option_id'].filter(key => original[key] !== undefined).every(key => equal(current[key], original[key]));
+}
 
 export function itinerary(plan) {
     const batches = [];
@@ -12,7 +20,9 @@ export function itinerary(plan) {
         let fields = [];
         const flush = () => { if (fields.length) batches.push({ group_key: group.key, field_keys: fields, kind: 'ordinary' }); fields = []; };
         for (const f of group.fields.filter(f => !f.manual)) {
-            if (['free_text', 'url', 'checkbox', 'agreement'].includes(f.type)) { fields.push(f.key); if (fields.length === 8) flush(); }
+            // Legacy plans retain their exact persisted checkpoint numbering.
+            // New plans keep agreement text observation outside ordinary filling.
+            if (['free_text', 'url', 'checkbox'].includes(f.type) || f.type === 'agreement' && (plan.execution_version ?? 1) < 2) { fields.push(f.key); if (fields.length === 8) flush(); }
             else { flush(); batches.push({ group_key: group.key, field_keys: [f.key], kind: f.type }); }
         }
         flush();
@@ -24,7 +34,7 @@ export function itinerary(plan) {
 export function executionCheckpoint(store, a) {
     const app = store.get('application', a.application_id), plan = store.get('plan', app.plan_id);
     assert(app.stage === 'preparing' && plan.content_hash === a.plan_hash, 'stale_plan', '只执行当前准备中的计划。');
-    assertMaterialCurrent(store, store.get('material', app.resume_id));
+    assertPlanCurrent(store, app, plan);
     assert(new URL(a.portal_url).origin === plan.origin && a.page_fingerprint === plan.page_fingerprint, 'page_changed', '接收方或页面结构变化，重新只读观察。');
     assert(Math.abs(Date.now() - Date.parse(iso(a.observed_at))) < 300000, 'stale_observation', '批次操作需要五分钟内的实际页面回读。');
     const grant = app.authorization;
@@ -56,7 +66,10 @@ export function executionCheckpoint(store, a) {
             const upload = targets[0];
             if (populated.length && upload.attachment_mode !== 'attachment_only') assert(upload.restore_confirmed === true && upload.restore_ref && populated.every(k => upload.restore_keys?.includes(k)), 'parse_restore_scope_required', '解析可能覆盖现有资料；先核对确切恢复范围或使用已核验的不解析入口。');
         }
-        if (prior) assert(observations.every(o => prior.retry_keys.includes(o.key) || verifyField(targets.find(f => f.key === o.key), o).ok), 'user_conflict', '恢复时存在未知修改。');
+        if (prior) assert(observations.every(o => {
+            const target = targets.find(f => f.key === o.key);
+            return verifyField(target, o, persistence).ok || prior.retry_keys.includes(o.key) && sameOriginal(target, o, prior.before.find(b => b.key === o.key));
+        }), 'user_conflict', '恢复后页面有新修改；保留当前值，不能改写为新的恢复原值。');
         const record=store.put('execution_batch', key, { application_id: app.id, plan_id: plan.id, number: spec.number, state: 'pending', protected_fields: protectedFields, before: observations, targets, grant,persistence, host_version: a.host_version ?? null, started_at: now(), observations: [], control_inventory:a.controls??null, scope: { origin: plan.origin, fingerprint: plan.page_fingerprint }, host_action: '执行已持久化批次；异常也返回逐字段回读。通道丢失时先 recover。' });
         return currentHost().id==='claude'?{...record,claude_procedure:claudeProcedure(plan,spec)}:record;
     }
@@ -75,7 +88,7 @@ export function executionCheckpoint(store, a) {
         for (const f of targets) {
             const current = observations.find(o => o.key === f.key);
             if (verifyField(f,current,persistence).ok) continue;
-            if (equal(current, prior.before.find(o => o.key === f.key))) retry.push(f.key);
+            if (sameOriginal(f, current, prior.before.find(o => o.key === f.key))) retry.push(f.key);
             else conflicts.push(f.key);
         }
         if (!conflicts.length && !retry.length) {

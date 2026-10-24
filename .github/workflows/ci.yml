@@ -22,3 +22,5 @@ jobs:
       - run: node scripts/check-public.mjs
       - run: node scripts/install.mjs --verify-only
       - run: node --no-warnings --test plugins/coming-jobs/tests/*.test.mjs
+      - name: Verify ten-application interruption and recovery
+        run: node --no-warnings scripts/application-batch-benchmark.mjs --engine synthetic

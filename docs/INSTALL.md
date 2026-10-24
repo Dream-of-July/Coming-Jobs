@@ -1,8 +1,8 @@
-# Install Coming Jobs beta.16
+# Install Coming Jobs beta.18
 
 [简体中文](INSTALL.zh-CN.md) · [Home](../README.md)
 
-Requires Node.js 22.13+. Verify the source bundle with `node scripts/build-release.mjs` and `node scripts/check-public.mjs`.
+Requires Node.js 22.13+. From the current source checkout, verify the bundle with `node scripts/build-release.mjs`, `node scripts/check-public.mjs` and `node scripts/install.mjs --verify-only`. Published download archives may be older than the source version.
 
 ```sh
 node scripts/install.mjs --host codex --skip-cli
@@ -12,7 +12,7 @@ node scripts/install.mjs --host both --skip-cli
 
 `--host auto` detects installed CLIs; omission means `codex`. `--home` selects an explicit isolated test home. Codex keeps its versioned `releases/<version>/plugins/coming-jobs` structure and host config, adding only `JOBOS_HOST=codex` to the MCP environment. Claude uses `claude-releases/<version>/plugins/coming-jobs`, an mcpServers wrapper, absolute paths, supported keys and `--host claude` hooks. Both use the chosen home's `.jobos-next`.
 
-The installer never edits `~/.claude/settings.json` or `~/.codex/config.toml`, including legacy enablement. CLI registration uses an isolated registry (Claude local scope inside its installed release); it does not mean the user's active host has enabled the plugin. Follow the returned local marketplace path in the actual host. For Claude CLI, `claude --plugin-dir "<installed Claude plugin directory>"` is a direct session-only alternative. Restart the host after enablement and verify context host/version/build.
+The installer never edits `~/.claude/settings.json` or `~/.codex/config.toml`, including legacy enablement. CLI registration uses an isolated registry (Claude local scope inside its installed release); it does not mean the user's active host has enabled the plugin. Follow the returned local marketplace path in the actual host. For Claude CLI, `claude --plugin-dir "<installed Claude plugin directory>"` is a direct session-only alternative. Restart the host after enablement and verify context host/version/build, including version `1.0.0-beta.18`. A repository update does not hot-reload the plugin. Existing candidate data and earlier installed releases are retained.
 
 For Codex, inspect the installer's hook_trust result and enable only the four reviewed Coming Jobs commands in the host's hook trust UI. The installer does not silently grant trust. No daily task is created merely by installation.
 

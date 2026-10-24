@@ -11,9 +11,18 @@ export const FOUNDATION = [
 ];
 export const PURPOSES = ['matching', 'resume', 'form', 'interview', 'tracking'];
 export function facts(store, purpose, scope = 'global') {
+    const normal = value => String(value).normalize('NFKC').trim().toLowerCase();
+    const scopes = new Set([scope]);
+    if (scope.startsWith('company:')) {
+        const label = normal(scope.slice('company:'.length));
+        const company = store.all('company').find(c => [c.name, ...(c.aliases ?? [])].some(name => normal(name) === label));
+        const labels = company ? [company.name, ...(company.aliases ?? [])].map(normal) : [label];
+        for (const fact of store.all('fact'))
+            if (fact.scope?.startsWith('company:') && labels.includes(normal(fact.scope.slice('company:'.length)))) scopes.add(fact.scope);
+    }
     const available = store.all('fact').filter(f => f.state === 'confirmed' && (!purpose || f.purposes.includes(purpose)) &&
-        (f.scope === 'global' || f.scope === scope) && (!f.expires_at || Date.parse(f.expires_at) > Date.now()));
-    return available.filter(f => f.scope === scope || !available.some(other => other.key === f.key && other.scope === scope));
+        (f.scope === 'global' || scopes.has(f.scope)) && (!f.expires_at || Date.parse(f.expires_at) > Date.now()));
+    return available.filter(f => scopes.has(f.scope) || !available.some(other => other.key === f.key && scopes.has(other.scope)));
 }
 export function factRole(fact) {
  const key=typeof fact==='string'?fact:fact.key;

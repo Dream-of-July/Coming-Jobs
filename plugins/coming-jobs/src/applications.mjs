@@ -4,6 +4,7 @@ import { itinerary } from './execution.mjs';
 import { fieldDigest, consentScope, coveredFields, authorizationState } from './authorization.mjs';
 import { assert, consent, noSecrets, hash, id, now, iso, originOf, portalLocation, publicUrl, equal } from './core.mjs';
 import { facts } from './profile.mjs';
+import { formInventoryCoverage, formProfileBindings, fieldBoundary, scalarFieldValue, approvedMaterialTexts } from './form-profile.mjs';
 import { assertMaterialCurrent, materialApproved } from './materials.mjs';
 function applicationOrigin(app, url) {
     const u = new URL(url);
@@ -11,15 +12,25 @@ function applicationOrigin(app, url) {
         return u.origin;
     return originOf(url);
 }
-function assertPlanCurrent(store, app, plan) {
+export function assertPlanCurrent(store, app, plan, { allowUnapprovedRendered = false } = {}) {
     const cv = store.get('material', app.resume_id);
     assertMaterialCurrent(store, cv);
+    assert(materialApproved(store,cv) || allowUnapprovedRendered && cv.render_receipt?.passed, 'resume_review_required', '本次简历的当前内容与编辑审核尚未通过。');
     assert(plan.groups.some(g => g.fields.some(f => f.material?.sha256 === cv.asset.sha256 && f.material?.id === cv.id)), 'stale_plan', '本地简历已变化，先同步计划与门户材料。');
     const current = new Map(facts(store, 'form', `company:${app.company}`).map(f => [f.id, f]));
     for (const f of plan.groups.flatMap(g => g.fields)) {
-        if (f.material) store.assetPath(f.material);
+        if (f.material) {
+            store.assetPath(f.material);
+            const material = store.get('material', f.material.id);
+            assert(material.asset?.sha256 === f.material.sha256, 'material_changed', '计划附件已被更新，先核对当前材料。');
+            if(material.id!==cv.id)assertMaterialCurrent(store,material);
+            assert(materialApproved(store,material) || allowUnapprovedRendered && material.render_receipt?.passed, 'material_review_required', '计划附件的当前内容与编辑审核尚未通过。');
+        }
         for (const [id, digest] of f.evidence_versions ?? []) assert(current.has(id) && hash(current.get(id).value) === digest, 'fact_changed', '已确认资料发生变化，只更新受影响的字段。');
     }
+    assert(!plan.form_profile_bindings || equal(plan.form_profile_bindings, formProfileBindings(store, app, plan)), 'fact_changed', '表单适用资料或公司专属答案已变化，先核对并更新计划。');
+    const coverage = formInventoryCoverage(store, app, plan);
+    assert(!coverage.write_blockers.length, 'unresolved_form_field', '计划包含尚未匹配或与实际控件不符的答案，不能授权或执行这些写入。', '核对实际字段含义、已确认资料和真实选项；保留未知项为空。', { fields: coverage.write_blockers.map(f => ({ key: f.key, reason: f.reason })) });
 }
 export const FIELD_TYPES = ['free_text', 'portal_select', 'date_picker', 'file_upload', 'url', 'checkbox', 'agreement', 'sensitive_user_owned'];
 export function planApplication(store, a) {
@@ -33,11 +44,12 @@ export function planApplication(store, a) {
     const fs = new Map(facts(store, 'form', `company:${app.company}`).map(f => [f.id, f]));
     const groups = a.groups.map(g => ({ key: g.key, label: g.label, required: g.required, fields: g.fields.map(f => {
             assert(FIELD_TYPES.includes(f.type), 'invalid_field_type', '不支持的门户字段类型。');
-            const humanLabel = /验证码|身份证|护照|背调|法律声明|承诺书|诚信|password|passport|declaration/i.test(f.label) || /隐私|privacy/i.test(f.label) && f.type!=='agreement';
-            assert(!humanLabel || f.type === 'sensitive_user_owned', 'manual_field_required', '该字段必须由用户处理，不能当普通字段自动填写。');
+            const boundary = fieldBoundary(f);
+            assert(!boundary || f.type === 'sensitive_user_owned', 'manual_field_required', boundary === 'host_auth' ? '认证字段由宿主按已有授权即时处理，不能保存为普通投递资料。' : '该字段必须由用户处理，不能当普通字段自动填写。');
             if (f.type === 'sensitive_user_owned')
                 return { key: f.key, label: f.label, type: f.type, required: f.required, manual: true };
             assert(f.value !== undefined, 'missing_target', '普通字段必须有明确目标值，不能临场编造。');
+            assert(scalarFieldValue(f.type, f.value), 'invalid_field_value', '当前控件需要单个明确文本或布尔答案，不能自动转换数组。');
             noSecrets(f.value, f.key);
             assert(!f.max_length || typeof f.value !== 'string' || [...f.value].length <= f.max_length, 'field_length_exceeded', '门户长度不足；记录限制并审核压缩差异，禁止静默截断。');
             const evidence = [...(f.evidence_ids ?? [])];
@@ -53,6 +65,7 @@ export function planApplication(store, a) {
                 assert(!f.allowed_mime_types || f.allowed_mime_types.includes(m.asset.mime_type ?? 'application/pdf'), 'attachment_type', '附件实际类型不符合门户要求。');
                 return { ...f, evidence_ids: [], material: { id: m.id, ...m.asset }, local_file: store.uploadPath(m.asset) };
             }
+            assert(!f.variation_id || f.content_key, 'wrong_variation', '公司文字例外必须引用实际简历条目。');
             if (f.content_key) {
                 const base = store.get('settings', 'resume_baseline');
                 const item = base.items.find(i => i.key === f.content_key);
@@ -62,12 +75,19 @@ export function planApplication(store, a) {
                     assert(v.material_id === cv.id && v.sha256 === cv.asset.sha256 && v.base_sha256 === base.sha256 && v.company === app.company && v.content_key === f.content_key && v.text === f.value, 'wrong_variation', '文字例外不属于本公司、当前简历或条目。');
                     assert(v.evidence.every(e => fs.has(e.id) && hash(fs.get(e.id).value) === e.digest), 'fact_changed', '公司例外引用的事实已变化。');
                     evidence.push(...v.evidence.map(e => e.id).filter(id => !evidence.includes(id)));
-                } else assert(f.value === item.text, 'resume_text_mismatch', '网页默认与已确认简历文字一致；扩写或压缩需要公司专属例外。');
+                } else {
+                    const rewritten = cv.baseline_mappings?.find(m => m.content_key === f.content_key && cv.qa?.reviewed_content_keys?.includes(m.content_key));
+                    assert(f.value === (rewritten?.text ?? item.text), 'resume_text_mismatch', '网页默认与本次已审核简历文字一致；扩写或压缩需要公司专属例外。');
+                    if (rewritten && !f.material_id) {
+                        assert(rewritten.evidence_ids.every(id => fs.has(id)), 'unconfirmed_field', '这段改写需引用本次已审核材料，或引用允许用于本公司填表的事实。');
+                        evidence.push(...rewritten.evidence_ids.filter(id => !evidence.includes(id)));
+                    }
+                }
             }
             if (f.material_id && !f.variation_id) {
                 const m = store.get('material', f.material_id);
                 assert(m.approved && m.id === cv.id, 'wrong_material', '改写文本只能来自本次已审核简历。');
-                const texts = [...(m.content?.sections.flatMap(s => s.items.map(i => i.text)) ?? []), ...(store.get('settings', 'resume_baseline', false)?.items.map(i => i.text) ?? [])];
+                const texts = approvedMaterialTexts(store, m);
                 assert(texts.some(t => t === f.value), 'unconfirmed_field', '改写值不在本次已审核内容中。');
             }
             else
@@ -89,8 +109,16 @@ export function planApplication(store, a) {
         assert(!item.group_key || groups.some(g => g.key === item.group_key), 'missing_group', '检查项引用的区域不在计划内。');
         assert(item.state === 'pending' || item.observation_ref, 'check_evidence_required', '完成或不适用需要实际核验引用。');
     }
-    const content_hash = hash([app.id, a.page_fingerprint, checklist, app.job_snapshot.content_hash, cv.asset.sha256, origin, groups, required]);
-    const plan = store.put('plan', content_hash, { application_id: app.id, origin, page_fingerprint: a.page_fingerprint, groups, checklist, required_groups: required, content_hash });
+    const priorInventory = (app.plan_id ? store.get('plan', app.plan_id).observed_fields : []) ?? [];
+    assert(new Set((a.observed_fields ?? []).map(f => f.key)).size === (a.observed_fields ?? []).length, 'duplicate_field', '表单观察中的字段编号重复。');
+    const inventory = new Map(priorInventory.map(f => [f.key, f]));
+    for (const field of a.observed_fields ?? []) inventory.set(field.key, field);
+    const observed_fields = [...inventory.values()];
+    const field_coverage = formInventoryCoverage(store, app, { groups, observed_fields });
+    const form_profile_bindings = formProfileBindings(store, app, { groups, observed_fields });
+    const execution_version = 2;
+    const content_hash = hash([execution_version, app.id, a.page_fingerprint, checklist, observed_fields, form_profile_bindings, app.job_snapshot.content_hash, cv.asset.sha256, origin, groups, required]);
+    const plan = store.put('plan', content_hash, { application_id: app.id, execution_version, origin, page_fingerprint: a.page_fingerprint, groups, checklist, observed_fields, form_profile_bindings, required_groups: required, content_hash });
     const same = app.plan_id === plan.id;
     if (!same && app.plan_id) {
         const oldDrafts = store.all('draft').filter(d => d.application_id === app.id && d.plan_id === app.plan_id);
@@ -103,7 +131,7 @@ export function planApplication(store, a) {
     }
     store.put('application', app.id, { ...app, plan_id: plan.id, authorization: app.authorization ?? null,
         review: same ? app.review : null, dirty: true, page: portalLocation(a.portal_url, app.mode === 'demo') });
-    return { plan, batches: itinerary(plan), authorization_status: authorizationState(app, plan), disclosure: { company: app.company, origin, groups: groups.map(g => g.label), files: groups.flatMap(g => g.fields.filter(f => f.material).map(f => ({ name: f.material.name, sha256: f.material.sha256 }))) },
+    return { plan, field_coverage, batches: itinerary(plan), authorization_status: authorizationState(app, plan), disclosure: { company: app.company, origin, groups: groups.map(g => g.label), files: groups.flatMap(g => g.fields.filter(f => f.material).map(f => ({ name: f.material.name, sha256: f.material.sha256 }))) },
         execution: '只执行差异区域；新计划覆盖旧计划前已经保留全部版本。' };
 }
 export function authorize(store, a) {
@@ -200,6 +228,7 @@ export function review(store, a) {
     assert(applicationOrigin(app, a.portal_url) === plan.origin, 'origin_changed', '接收方变化，不能给出最终审核。');
     assertPlanCurrent(store, app, plan);
     const drafts = store.all('draft').filter(d => d.application_id === app.id && d.plan_id === plan.id);
+    const field_coverage = formInventoryCoverage(store, app, plan);
     const checks = plan.groups.map(g => {
         const d = drafts.find(d => d.group_key === g.key);
         const required = g.required || plan.required_groups.includes(g.key) || g.fields.some(f => !f.manual);
@@ -227,13 +256,13 @@ export function review(store, a) {
         }
         for(const c of controls.filter(c=>c.type==='agreement')){if(typeof c.text!=='string')inventory.push({key:c.key,required:true,passed:false,reason:'agreement_readback_required'});const field=plan.groups.flatMap(g=>g.fields).find(f=>f.key===c.key&&f.type==='agreement');if(!field||field.text_hash!==c.text_hash)inventory.push({key:c.key,label:c.label??c.key,required:true,passed:false,reason:'agreement_changed'});}
     } else if(app.apply_batch_id)inventory.push({key:'controls',required:true,passed:false,reason:'inventory_required'});
-    const blockers = [...checks, ...inventory].filter(g => g.required && !g.passed);
+    const blockers = [...checks, ...inventory].filter(g => g.required && !g.passed).concat(field_coverage.blockers.map(f => ({ key: f.key, label: f.label, required: true, passed: false, reason: f.reason })));
     const cv = store.get('material', app.resume_id);
     store.assetPath(cv.asset);
     assertMaterialCurrent(store, cv);
     const snapshot = { job: app.job_snapshot, resume: { ...cv }, answers: drafts.map(d => ({ group: d.group_key, fields: d.observed })), plan_hash: plan.content_hash };
     const oldest_observed_at=drafts.length?new Date(Math.min(...drafts.map(d=>Date.parse(d.observed_at)))).toISOString():null;
-    const result = { ready: blockers.length === 0, checks, checklist: inventory, completeness: plan.checklist?.length ? 'recorded_inventory' : 'legacy_inventory_unverified', control_inventory_verified:!!controls,controls:controls??[],oldest_observed_at,inventory_observed_at,persistence_ref:a.persistence_ref??null,single_submit:a.single_submit??false,portal_persistence: drafts.every(d => d.portal_saved === true) && drafts.length ? 'saved_observed' : 'not_verified', blockers, snapshot_hash: hash(snapshot), snapshot, reviewed_at: now(),
+    const result = { ready: blockers.length === 0, checks, checklist: inventory, field_coverage, completeness: plan.observed_fields?.length ? 'observed_fields_checked' : plan.checklist?.length ? 'recorded_inventory' : 'legacy_inventory_unverified', control_inventory_verified:!!controls,controls:controls??[],oldest_observed_at,inventory_observed_at,persistence_ref:a.persistence_ref??null,single_submit:a.single_submit??false,portal_persistence: drafts.every(d => d.portal_saved === true) && drafts.length ? 'saved_observed' : 'not_verified', blockers, snapshot_hash: hash(snapshot), snapshot, reviewed_at: now(),
         final_submit: 'batch_grant_only', manual_notice: '用户亲自处理声明；逐批审批后，仅 clear_submit 放行的项目可点击一次。Agent 不代做测评。' };
     store.put('application', app.id, { ...app, review: result });
     return { ...result, snapshot: undefined };
@@ -315,14 +344,26 @@ export function recordOutcome(store, a) {
         provider_verified: false, actual_resume_sha256:submitted?.resume?.asset?.sha256??app.actual_resume_sha256??null, submitted_material: submitted, dirty: canUpdate ? false : app.dirty, handoff: null,
         observations: [...new Set([...(app.observations ?? []), eventId])], attention: conflict ? 'evidence_conflict' : app.attention ?? null });
     if(attempt)store.put('submit_attempt',attempt.id,{...attempt,state:a.stage==='unknown'?'unknown':'recorded',outcome_ref:observation.reference??a.user_ref??null});
-    if(app.apply_batch_id){const batch=store.get('apply_batch',app.apply_batch_id,false),grant=batch?.grant_id?store.get('apply_grant',batch.grant_id,false):null;if(grant?.items.every(i=>!['preparing','unknown'].includes(store.get('application',i.application_id).stage))&&!(batch.paused_items??[]).some(i=>['preparing','unknown'].includes(store.get('application',i.application_id).stage))){store.put('apply_batch',batch.id,{...batch,state:'complete',completed_at:now()});store.put('settings','active_apply_batch',{batch_id:null});}}
+    if (app.apply_batch_id) {
+        const batch = store.get('apply_batch', app.apply_batch_id, false);
+        // Approval may cover only part of a batch. Unapproved and paused members
+        // still need a resumable queue after the approved members finish.
+        if (batch?.state === 'active' && batch.application_ids?.length && batch.application_ids.every(key => {
+            const member = store.get('application', key, false);
+            return member && !['preparing', 'unknown'].includes(member.stage);
+        })) {
+            store.put('apply_batch', batch.id, { ...batch, state: 'complete', completed_at: now() });
+            if (store.get('settings', 'active_apply_batch', false)?.batch_id === batch.id)
+                store.put('settings', 'active_apply_batch', { batch_id: null });
+        }
+    }
     return { application: updated, conflict, verified_by_provider: false, next: '已记录外部观察，不要求内部 checkpoint；后续只读跟踪，不再次投递。' };
 }
 export function applicationContext(store, id) {
     const app = store.get('application', id);
     const plan = app.plan_id ? store.get('plan', app.plan_id) : null;
     const drafts = store.all('draft').filter(d => d.application_id === id && d.plan_id === app.plan_id);
-    return { application: app, plan, authorization_status: plan ? authorizationState(app, plan) : null,
+    return { application: app, plan, field_coverage: plan ? formInventoryCoverage(store, app, plan) : null, authorization_status: plan ? authorizationState(app, plan) : null,
         resume_sync: { local: app.resume_id ? store.get('material', app.resume_id).asset?.sha256 ?? null : null, portal: drafts.flatMap(d => d.observed).filter(f => f.upload_complete).map(f => ({ key: f.key, file_name: f.file_name, local_sha256: f.local_sha256 })), form: drafts.map(d => ({ group: d.group_key, verified: d.passed, portal_saved: d.portal_saved ?? null })) },
         pending_groups: plan?.groups.filter(g => !drafts.some(d => d.group_key === g.key && d.passed)).map(g => ({ key: g.key, label: g.label })) ?? [],
         drafts,

@@ -3,7 +3,8 @@ import { assert, consent, noSecrets, hash, id, now, iso, publicUrl } from './cor
 import { facts, profileDigest } from './profile.mjs';
 import { candidateFitContext } from './fit-profile.mjs';
 import { normalizeFitAssessment, compareFitAssessments, isRecommendable } from './fit-assessment.mjs';
-import { jobOpportunity, previouslyApplied } from './opportunities.mjs';
+import { cancelLocalPreparations, companyMatches, jobObservationCurrent, jobOpportunity, previouslyApplied, scopeKey, submitted } from './opportunities.mjs';
+import { assertApplicationSelection, companyApplicationStrategy, preparations } from './application-strategy.mjs';
 import { compareLiveLists } from './collectors/index.mjs';
 
 export function readAssessment(store, job) {
@@ -103,7 +104,9 @@ export function shortlist(store, a) {
     if (a.operation === 'feedback') {
         consent(a.confirmed, a.user_ref);
         store.get('job', a.job_id);
-        return store.put('feedback', a.job_id, { decision: a.decision, reason: a.reason ?? '', until: a.until ? iso(a.until) : null });
+        const feedback = store.put('feedback', a.job_id, { decision: a.decision, reason: a.reason ?? '', until: a.until ? iso(a.until) : null });
+        return a.decision === 'reject' ? { ...feedback, preparation_cancellation: cancelLocalPreparations(store,
+            store.all('application').filter(app => app.job_id === a.job_id), { user_ref: a.user_ref, reason: a.reason ?? '' }) } : feedback;
     }
     if (a.operation === 'choose') {
         consent(a.confirmed, a.user_ref);
@@ -111,18 +114,20 @@ export function shortlist(store, a) {
         assert(!batch.discovery?.collection_pending, 'collection_incomplete', '官网范围仍有未读岗位，先补齐比较。');
         assert(!batch.discovery?.review_pending, 'scope_review_incomplete', '当前范围仍有已采集岗位未完成有效评估，先补齐比较，不消耗投递机会。');
         const selected = a.numbers.map(n => { const item = batch.items.find(j => j.number === n); assert(item, 'invalid_selection', '这份批次没有该编号。'); return item; });
-        const applications = selected.map(item => {
+        for (const item of selected) {
             const job = store.get('job',item.job_id), assessment = readAssessment(store,job), quota = jobOpportunity(store,job);
+            assert(jobObservationCurrent(job), 'job_observation_stale', '岗位正文核验已过期，请先重新读取完整 JD 或核验完整正文变更标识。');
             assert(quota.state !== 'exhausted','opportunity_exhausted','该公司本批次名额已用完，只作参考并继续跟进。');
             assert(quota.state === 'available','opportunity_unverified','先复核当前公司名额、投递规则和既有申请。');
             assert(assessmentCurrent(store,assessment,job)&&isRecommendable(assessment),'qualification_unverified','岗位资格、证据或画像已变化，请先重评，不沿用旧排序。');
             const collection=store.all('collection').find(c=>c.company===job.company&&c.track===job.track&&(c.campaign??'')===(job.campaign??'')&&c.mode===job.mode);
             const check=collectionStatus(store,collection);
             assert(check.complete&&check.live_verified,'collection_incomplete','当前完整目录和实时在招列表尚未复核。');
-            const pending=store.all('job').filter(j=>j.company===job.company&&j.track===job.track&&(j.campaign??'')===(job.campaign??'')&&j.mode===job.mode&&collection.external_ids.includes(j.external_id)).some(j=>{const s=readAssessment(store,j);return !assessmentCurrent(store,s,j);});
+            assert(collection.external_ids.includes(job.external_id), 'job_not_listed', '这个岗位已不在当前核验的官方目录中，请更新比较后再选择。');
+            const pending=store.all('job').filter(j=>j.company===job.company&&j.track===job.track&&(j.campaign??'')===(job.campaign??'')&&j.mode===job.mode&&collection.external_ids.includes(j.external_id)).some(j=>{const s=readAssessment(store,j);return !jobObservationCurrent(j)||!assessmentCurrent(store,s,j);});
             assert(!pending,'scope_review_incomplete','当前范围仍有岗位未完成有效评估，请先补齐。');
-            return createApplication(store,item.job_id,a.user_ref,item.job_hash);
-        });
+        }
+        const applications = prepareApplicationChoices(store, selected, a.user_ref);
         if (applications[0])
             store.put('settings', 'active', { application_id: applications[0].id });
         return { applications };
@@ -134,12 +139,12 @@ export function shortlist(store, a) {
     const companiesScope = [...new Set(a.companies?.length ? a.companies : typeof currentCompany === 'string' ? [currentCompany] : [])].sort();
     const targetCount = a.target_count ?? 10;
     assert(!a.search_complete || a.search_note?.trim(), 'search_evidence_required', '声明搜索已完成时，需说明已查范围、过滤原因或具体限制。');
-    const candidateRevision = hash([store.all('collection'), store.all('job'), store.all('assessment'), store.all('feedback'), store.all('application'), store.all('opportunity')]);
+    const candidateRevision = hash([store.all('collection'), store.all('job'), store.all('assessment'), store.all('feedback'), store.all('application'), store.all('application_scope'), store.all('company'), store.all('daily_feedback'), store.all('opportunity')]);
     const key = hash(['discovery-v3', date, timezone, a.mode ?? 'live', profileDigest(store), companiesScope, a.campaign ?? null, targetCount, candidateRevision, a.search_complete ?? false, a.search_note ?? null]).slice(0, 24);
     const existing = store.get('batch', key, false);
     if (existing && !a.refresh)
         return existing;
-    const applied = new Set(store.all('application').filter(x=>x.stage!=='voided').map(x => x.job_id));
+    const applied = new Set(store.all('application').filter(app => app.stage !== 'voided' && (app.stage !== 'cancelled_preparation' || submitted(app))).map(x => x.job_id));
     const intentTracks = facts(store, 'matching').find(f => f.key === 'intent.tracks')?.value;
     const scopeJobs = store.all('job').filter(j => (!a.campaign || j.campaign === a.campaign) && j.state === 'open' && j.mode === (a.mode ?? 'live') &&
         (!companiesScope.length || companiesScope.some(c => c.toLowerCase() === j.company.toLowerCase())) &&
@@ -161,6 +166,19 @@ export function shortlist(store, a) {
         .filter(({job}) => collections.some(c => c.company === job.company && c.track === job.track && (c.campaign ?? '') === (job.campaign ?? '') && c.external_ids.includes(job.external_id) && collectionStatus(store,c).live_verified && collectionStatus(store,c).complete))
         .filter(({ job }) => { const f = store.get('feedback', job.id, false); return !f || !['reject', 'defer'].includes(f.decision) || (f.decision === 'defer' && f.until && Date.parse(f.until) < Date.now()); })
         .sort((a,b) => compareFitAssessments(a.assessment,b.assessment));
+    const strategyCandidates = evaluated.filter(({ job }) => scopeJobs.some(current => current.id === job.id) &&
+        collections.some(c => c.company === job.company && c.track === job.track && (c.campaign ?? '') === (job.campaign ?? '') && c.external_ids.includes(job.external_id)));
+    const applicationStrategies = store.all('company').filter(company => companiesScope.length ? companiesScope.some(label => companyMatches(company, label)) : scopeJobs.some(job => companyMatches(company, job.company)))
+        .map(company => {
+            const scopes = company.scopes.filter(scope => (!a.campaign || scope.campaign === a.campaign) && (!intentTracks || JSON.stringify(intentTracks).includes(scope.track)));
+            const reviewed = scopes.filter(scope => {
+                const collection = collections.find(c => companyMatches(company, c.company) && c.track === scope.track && c.campaign === scope.campaign);
+                const check = collectionStatus(store, collection);
+                return check.complete && check.live_verified && !pendingReview.some(job => companyMatches(company, job.company) && job.track === scope.track && job.campaign === scope.campaign) &&
+                    store.all('job').filter(job => job.company === collection.company && job.track === scope.track && job.campaign === scope.campaign && job.mode === (a.mode ?? 'live') && collection.external_ids.includes(job.external_id)).every(jobObservationCurrent);
+            }).map(scopeKey);
+            return companyApplicationStrategy(store, company, { mode: a.mode ?? 'live', scopes, candidates: strategyCandidates, reviewed_scopes: reviewed });
+        });
     const items = [];
     for (const e of entries) {
         const uncertain = e.assessment.mappings.filter(m => ['gap', 'unknown'].includes(m.relation));
@@ -191,7 +209,7 @@ export function shortlist(store, a) {
         search_complete: a.search_complete ?? false, search_note: a.search_note ?? null,
         status: collectionPending ? 'collection_incomplete' : pendingReview.length ? 'review_incomplete' : shortage === 0 ? 'target_met' : a.search_complete ? 'insufficient' : 'continue_search',
         warning: pendingReview.length ? `当前范围还有${pendingReview.length}个已采集岗位未完成有效评估，不能把已选候选说成全量比较结果。` : shortage ? `当前仅有${items.length}个可比较岗位，距目标还差${shortage}个；${a.search_complete ? '已说明搜索限制，不以过期、重复或不相关岗位凑数' : '继续同一公司范围检索，暂不要求用户选岗'}` : null };
-    return store.put('batch', existing ? id('batch') : key, { date, timezone, companies: companiesScope, items, discovery,
+    return store.put('batch', existing ? id('batch') : key, { date, timezone, companies: companiesScope, items, discovery, application_strategies: applicationStrategies,
         reference_only: evaluated.filter(({job,assessment}) => (!companiesScope.length || companiesScope.includes(job.company)) && job.mode === (a.mode ?? 'live') && (!isRecommendable(assessment) || previouslyApplied(store,job) || jobOpportunity(store,job).state !== 'available')).map(({job,assessment}) => ({job_id:job.id,title:job.title,company:job.company,tier:assessment.tier,hard_gates:assessment.hard_gates,reason:assessment.reason,opportunity:jobOpportunity(store,job)})),
         coverage: '本次已核验且已完成证据映射的候选池', mode: a.mode ?? 'live' });
 }
@@ -202,11 +220,44 @@ export function createApplication(store, jobId, userRef, expectedHash) {
     assert(jobOpportunity(store,job).state !== 'exhausted', 'opportunity_exhausted', '该公司本批次名额已用完，只作参考并继续跟进。');
     assert(jobOpportunity(store,job).state !== 'closed','campaign_closed','本招聘项目已经截止，请核验当前开放范围。');
     const existing = store.all('application').find(a => a.job_id === jobId && a.stage !== 'voided');
-    if (existing)
+    if (existing && existing.stage !== 'cancelled_preparation')
         return existing;
     assert(job.state === 'open' && (!job.deadline || Date.parse(job.deadline) > Date.now()), 'job_not_open', '这个岗位已经关闭或超过截止日。', '只读核验当前职位，不创建新的投递。');
-    const app = store.put('application', id('app'), { job_id: job.id, job_snapshot: { ...job }, company: job.company, title: job.title,
-        mode: job.mode, stage: 'preparing', user_ref: userRef, created_at: now(), resume_id: null, submitted_material: null, observations: [] });
+    assertApplicationSelection(store, [job]);
+    const app = existing ? store.put('application', existing.id, { ...existing, job_snapshot: { ...job }, company: job.company, title: job.title,
+        stage: 'preparing', user_ref: userRef, resumed_at: now(), plan_id: null, authorization: null, review: null, handoff: null,
+        preparation_cancellation: null, application_choices: [], application_choice_order: null, dirty: true }) :
+        store.put('application', id('app'), { job_id: job.id, job_snapshot: { ...job }, company: job.company, title: job.title,
+            mode: job.mode, stage: 'preparing', user_ref: userRef, created_at: now(), resume_id: null, submitted_material: null, observations: [] });
     store.put('settings', 'active', { application_id: app.id });
     return app;
+}
+
+/** Local preparation only. Validate the whole selection before the first write. */
+export function prepareApplicationChoices(store, items, userRef) {
+    const jobs = items.map(item => {
+        const job = store.get('job', item.job_id);
+        assert(!item.job_hash || item.job_hash === job.content_hash, 'jd_changed', '选中后 JD 已变化，先展示差异。');
+        return job;
+    });
+    assertApplicationSelection(store, jobs);
+    const groups = new Map();
+    for (const job of jobs) {
+        const company = store.all('company').find(record => companyMatches(record, job.company));
+        const mode = job.mode ?? 'live', key = hash([company.id, scopeKey(job), mode]);
+        if (!groups.has(key)) groups.set(key, { job_ids: [], previous: preparations(store, company, job, mode).map(app => app.id) });
+        groups.get(key).job_ids.push(job.id);
+    }
+    const applications = jobs.map(job => createApplication(store, job.id, userRef, job.content_hash));
+    for (const group of groups.values()) {
+        const choices = [...new Set([...group.previous, ...applications.filter(app => group.job_ids.includes(app.job_id)).map(app => app.id)])];
+        for (const applicationId of choices) {
+            const app = store.get('application', applicationId), job = store.get('job', app.job_id);
+            store.put('application', app.id, { ...app, application_choices: choices,
+                application_choice_order: { preparation_position: choices.indexOf(app.id) + 1,
+                    volunteer_order: jobOpportunity(store, job).volunteer_order ?? 'unknown', portal_preference_rank: null } });
+        }
+    }
+    if (applications[0]) store.put('settings', 'active', { application_id: applications[0].id });
+    return applications.map(app => store.get('application', app.id));
 }
