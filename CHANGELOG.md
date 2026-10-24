@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0-beta.17 — Executor stall fixes / 执行卡点修复
+
+- `invalid_arguments` now lists every missing, mistyped or unsupported field in one response (`error.details.errors`), names the operation, and includes a minimal schema-valid `details.example`, so a caller can fix all fields in one retry. Unknown or missing `operation` lists the valid choices.
+- `jobos1_outcome` accepts `evidence: { url, page_excerpt, submitted_at }` as official-portal proof when the browser host can only see the page, not a screenshot path. The excerpt must contain the application's job ID or title, `submitted_at` is required for `submitted`, and a mismatching `job_id` is still rejected.
+- Skill and host policy: graphical/slider verification hands off only that single action while the batch continues; items pause only when approved semantic content changes (portal auto-synced values and fields restored to the approved value are not changes); do not reload or leave the preview page.
+- 中文：参数错误一次列全并附最小示例；官网投递结果可用 URL + 页面摘录 + 提交时间作证；图形/滑块只交接该动作，自动同步或已恢复的字段不算变化，预览页不刷新不离开。
+
 ## 1.0.0-beta.16 — Hands-off batches and dual hosts
 
 - Codex-default and Claude profiles, portable public object schemas with strict operation validation, relevant-only hooks, generic read-only workers and host-aware scheduling/output budgets.

@@ -6022,6 +6022,31 @@
           "minLength": 1,
           "maxLength": 200
         },
+        "evidence": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 3000
+            },
+            "page_excerpt": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "submitted_at": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "url",
+            "page_excerpt"
+          ],
+          "additionalProperties": false
+        },
         "user_confirmed": {
           "type": "boolean"
         },

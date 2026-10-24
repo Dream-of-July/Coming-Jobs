@@ -59,7 +59,7 @@ function sheet(store,b,issued=now(),applicationId=null){
  const code='S-'+hash([b.id,b.sheet_nonce,issued,content_hash]).slice(0,6).toUpperCase();
  return {batch_id:b.id,code,issued_at:issued,expires_at:new Date(issuedMs+2*3600000).toISOString(),items,content_hash,
   needs_decision:items.filter(i=>i.blockers.length).map(i=>({number:i.number,blockers:i.blockers})),mode:mode(store),reply:`批准 ${code} 全部`,
-  disclosure:'批准仅覆盖列明的所选申请、字段值、文件哈希、接收方与协议；变化项暂停。密码、验证码、扫码、人机验证和声明由本人处理。'};
+  disclosure:'批准仅覆盖列明的所选申请、字段值、文件哈希、接收方与协议；仅已审批的语义内容变化时暂停该项。密码、验证码、扫码和声明由本人处理；图形/滑块验证只交接该动作。'};
 }
 function foreground(store,a){
  let hookState=null;try{hookState=JSON.parse(readFileSync(path.join(store.home,'hooks',hash(String(a.session_id)).slice(0,32)+'.json'),'utf8'));}catch{}

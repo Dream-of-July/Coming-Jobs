@@ -2,7 +2,7 @@ import {currentHost} from './host.mjs';
 import {sourceValue} from './field-source.mjs';
 import { itinerary } from './execution.mjs';
 import { fieldDigest, consentScope, coveredFields, authorizationState } from './authorization.mjs';
-import { assert, consent, noSecrets, hash, id, now, iso, originOf, portalLocation, equal } from './core.mjs';
+import { assert, consent, noSecrets, hash, id, now, iso, originOf, portalLocation, publicUrl, equal } from './core.mjs';
 import { facts } from './profile.mjs';
 import { assertMaterialCurrent, materialApproved } from './materials.mjs';
 function applicationOrigin(app, url) {
@@ -251,12 +251,26 @@ export function handoff(store, a) {
     return store.put('application', app.id, { ...app, handoff: task });
 }
 const STAGES = ['voided','preparing', 'unknown', 'submitted', 'screening', 'assessment', 'interview', 'offer', 'rejected', 'withdrawn'];
+const normalizeText = value => String(value ?? '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
+// Browser hosts can read page text but cannot hand over a screenshot path; a public URL plus a matching excerpt is the traceable proof.
+function portalEvidence(a, app, observedAt) {
+    if (!a.evidence) return null;
+    const url = publicUrl(a.evidence.url);
+    noSecrets(a.evidence.page_excerpt);
+    const submittedAt = a.evidence.submitted_at ? iso(a.evidence.submitted_at, '提交时间') : null;
+    assert(a.stage !== 'submitted' || submittedAt, 'job_evidence_missing', '记录已投递需要 evidence.submitted_at（页面显示的提交时间）。');
+    assert(!submittedAt || Date.parse(submittedAt) <= Date.parse(observedAt) + 300000, 'future_observation', '提交时间不能晚于观察时间。');
+    const excerpt = normalizeText(a.evidence.page_excerpt), externalId = app.job_snapshot.external_id, title = app.job_snapshot.title ?? app.title;
+    const matchedBy = externalId && excerpt.includes(normalizeText(externalId)) ? 'job_id' : title && excerpt.includes(normalizeText(title)) ? 'title' : null;
+    assert(matchedBy, 'job_evidence_missing', '页面摘录未包含当前申请的岗位编号或岗位名称。', '摘录投递记录页中本岗位所在行的原文；不要摘录其他岗位。');
+    return { url, page_excerpt: a.evidence.page_excerpt, submitted_at: submittedAt, matched_by: matchedBy };
+}
 export function recordOutcome(store, a) {
     let app;
     if (a.application_id) app = store.get('application', a.application_id);
     else {
         assert(a.company && a.title && a.job_id, 'application_identity_required', '补记投递需要公司、岗位名称和官方岗位编号。');
-        assert(a.user_confirmed || (a.source === 'official_portal' && a.observation_ref), 'submission_evidence_required', '补记投递需要用户确认或官方页面观察。');
+        assert(a.user_confirmed || (a.source === 'official_portal' && (a.observation_ref || a.evidence)), 'submission_evidence_required', '补记投递需要用户确认或官方页面观察。');
         noSecrets([a.company, a.title]);
         const matches = store.all('application').filter(x => x.company === a.company && x.job_snapshot?.external_id === a.job_id);
         assert(matches.length <= 1, 'ambiguous_application', '存在多个同岗位记录，请指定申请。');
@@ -272,10 +286,15 @@ export function recordOutcome(store, a) {
     noSecrets(a.raw_stage ?? '');
     const at = iso(a.observed_at);
     assert(Date.parse(at) <= Date.now() + 300000, 'future_observation', '观察时间不能在未来。');
-    const proof = a.source === 'official_portal' && a.observation_ref && a.job_id === app.job_snapshot.external_id;
-    assert(a.source !== 'official_portal' || proof, 'job_evidence_missing', '官方页面观察必须匹配当前职位 ID 并带可追溯引用。');
+    const externalId = app.job_snapshot.external_id;
+    assert(a.source !== 'official_portal' || !a.job_id || !externalId || a.job_id === externalId, 'job_evidence_missing', `官方页面的职位 ID ${String(a.job_id).slice(0, 80)} 与当前申请 ${externalId} 不符。`, '确认打开的是本申请对应岗位；不要改写为当前 ID 重试。');
+    const evidence = a.source === 'official_portal' ? portalEvidence(a, app, at) : null;
+    const proof = a.source === 'official_portal' && (evidence || a.observation_ref && a.job_id === externalId);
+    assert(a.source !== 'official_portal' || proof, 'job_evidence_missing', '官方页面观察需要 evidence（官网 URL + 含岗位编号或名称的页面摘录 + 提交时间），或 observation_ref 加匹配的 job_id。',
+        '截图无本地路径时使用 evidence，不需要文件路径；参照 details.example 一次补齐。', { example: { application_id: app.id, stage: 'submitted', source: 'official_portal', observed_at: at, job_id: externalId ?? undefined,
+            evidence: { url: 'https://<官网投递记录页>', page_excerpt: `<页面原文，含 ${externalId ?? app.job_snapshot.title}>`, submitted_at: '<页面显示的提交时间>' } } });
     const observation = { source: a.source, stage: a.stage, raw_stage: a.raw_stage ?? a.stage, observed_at: at,
-        reference: a.observation_ref ?? null, user_confirmed: !!a.user_confirmed, provider_verified: false, job_id: a.job_id ?? null };
+        reference: a.observation_ref ?? evidence?.url ?? null, user_confirmed: !!a.user_confirmed, provider_verified: false, job_id: a.job_id ?? null, ...(evidence ? { evidence } : {}) };
     const eventId = hash([app.id, observation]);
     store.put('observation', eventId, { application_id: app.id, ...observation });
     const previous = app.last_observation_at ? Date.parse(app.last_observation_at) : 0;
@@ -295,7 +314,7 @@ export function recordOutcome(store, a) {
         submission_evidence: proof && a.stage !== 'unknown' ? 'portal_observed' : (app.submission_evidence === 'portal_observed' ? 'portal_observed' : a.user_confirmed ? 'user_reported' : app.submission_evidence ?? 'unverified'),
         provider_verified: false, actual_resume_sha256:submitted?.resume?.asset?.sha256??app.actual_resume_sha256??null, submitted_material: submitted, dirty: canUpdate ? false : app.dirty, handoff: null,
         observations: [...new Set([...(app.observations ?? []), eventId])], attention: conflict ? 'evidence_conflict' : app.attention ?? null });
-    if(attempt)store.put('submit_attempt',attempt.id,{...attempt,state:a.stage==='unknown'?'unknown':'recorded',outcome_ref:a.observation_ref??a.user_ref??null});
+    if(attempt)store.put('submit_attempt',attempt.id,{...attempt,state:a.stage==='unknown'?'unknown':'recorded',outcome_ref:observation.reference??a.user_ref??null});
     if(app.apply_batch_id){const batch=store.get('apply_batch',app.apply_batch_id,false),grant=batch?.grant_id?store.get('apply_grant',batch.grant_id,false):null;if(grant?.items.every(i=>!['preparing','unknown'].includes(store.get('application',i.application_id).stage))&&!(batch.paused_items??[]).some(i=>['preparing','unknown'].includes(store.get('application',i.application_id).stage))){store.put('apply_batch',batch.id,{...batch,state:'complete',completed_at:now()});store.put('settings','active_apply_batch',{batch_id:null});}}
     return { application: updated, conflict, verified_by_provider: false, next: '已记录外部观察，不要求内部 checkpoint；后续只读跟踪，不再次投递。' };
 }

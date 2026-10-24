@@ -12,7 +12,7 @@ Reuse an approved target list and confirmed facts. Collect necessary login, perm
 
 The plugin grants authority in one transaction, then rechecks each item before releasing exactly one foreground submit click. It first records an unknown outcome and a submit attempt; changed items pause, while unaffected approved items continue. Outcomes retain the actual submitted resume SHA. Normal batches budget two touchpoints: grouped human checks and coded approval. First-time target/template onboarding and newly appearing legal, verification or content changes can require additional decisions.
 
-`batch_submit` defaults to `on`; `prefill_only` fills without submitting, and `off` restores manual submission. Passwords, registration, QR/CAPTCHA/slider challenges, legal declarations and assessments remain user-owned. Claude login codes are entered by the user; its JavaScript tool is read-only and files are grouped for manual drag/drop. Codex retains the explicitly authorized email-first login policy.
+`batch_submit` defaults to `on`; `prefill_only` fills without submitting, and `off` restores manual submission. Passwords, registration, QR challenges, legal declarations and assessments remain user-owned; a graphical/slider CAPTCHA is handed off as that single action while the rest of the batch continues. Claude login codes are entered by the user; its JavaScript tool is read-only and files are grouped for manual drag/drop. Codex retains the explicitly authorized email-first login policy.
 
 ## Install
 

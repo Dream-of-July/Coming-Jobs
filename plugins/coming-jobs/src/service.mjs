@@ -92,7 +92,7 @@ export function call(store, name, args = {}) {
     catch (error) {
         let paused=false;if(name==='jobos1_apply_batch'&&args.operation==='clear_submit'){try{paused=persistSubmitPause(store,args,error);}catch{}}
         return { ok: false, ...meta, error: { code: error.code ?? 'local_error', message: error.code ? error.message : '本次本地操作未完成。检查 Node 版本、文件存在性与权限；不重复执行外部动作。',
-                next: error.next ?? '保留当前页面和草稿，进行一次针对性诊断。', state_changed: paused },
+                next: error.next ?? '保留当前页面和草稿，进行一次针对性诊断。', state_changed: paused, ...(error.code && error.details && Object.keys(error.details).length ? { details: error.details } : {}) },
             flow: { stage: '需要处理', can_auto_continue: false, next: { owner: 'agent', action: 'repair_once', prompt: error.next ?? '仅诊断这次错误；无法修复时说明具体缺口和用户下一步。' } } };
     }
 }

@@ -94,6 +94,7 @@ tool('handoff', '缺登录权限或验证码读取能力、声明及真实未知
     ] });
 tool('outcome', '记录用户提交及官方页面/邮件/短信观察，不要求 checkpoint；不冒充 provider 验证', O({ application_id: S(100), stage: E('unknown', 'submitted', 'screening', 'assessment', 'interview', 'offer', 'rejected', 'withdrawn'),
     source: E('official_portal', 'user_report', 'email', 'sms', 'import'), observed_at: S(80), background: B, raw_stage: S(1000), observation_ref: S(1000), job_id: S(200),
+    evidence: O({ url: S(3000), page_excerpt: S(2000), submitted_at: S(80) }, ['url', 'page_excerpt']),
     user_confirmed: B, user_ref: S(1000), actual_resume_sha256: S(64), company: S(200), title: S(300) }, ['stage', 'source', 'observed_at']));
 tool('followup', '全部申请的只读跟进、结构化通知和真实调度绑定', { oneOf: [
         OP('queue', { background: B }, []), OP('configure', { timezone: S(100), times: A({ type: 'string', pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }, 4), include_email: B, include_sms: B, ...APPROVAL }),
