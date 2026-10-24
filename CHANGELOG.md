@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0-beta.18 — Resumable ten-application preparation / 十岗位连续预填
+
+- Integrated the previously separate PR #5 form-profile, OTP, multi-choice and résumé-quality work with the current dual-host and one-click safeguards.
+- Added a durable application queue with next/resume/defer/retry, fenced claims, per-phase retry limits, bounded backoff, isolated human checkpoints and grouped completed-draft handoff. One batch now accepts up to ten applications.
+- New workspaces default to prefill_only; explicit existing preferences remain unchanged. One finished draft no longer stops the remaining queue.
+- Added compact batch and execution contexts. A post-commit guidance failure cannot report the successful mutation as failed.
+- Fixed ordinary form readback, semantic locators, protected user edits, safe failure codes and bounded read waits. The same eight-field synthetic path uses 25 direct browser calls versus beta.17's 40; native write cancellation remains host-owned.
+- Reclaimed expired read-only worker leases, rejected stale/late results and capped automatic redispatch. Retained exact editorial résumé approval on unchanged content without carrying it across changed SHA/mappings/evidence.
+- Grouped quota approvals by canonical company, recruitment scope and mode, including retained scoped approvals. A partially approved batch remains resumable until every member finishes; a bad Claude upload asset is reported without cancelling healthy preparation.
+- Shared freshness checks cover company-specific form answers and editorial résumé mappings at review, queue readiness and final clearance. New approvals bind material review digests; fully legacy grants retain their original comparison format without extending consent or expiry.
+- Isolated agreements in new execution plans while preserving legacy checkpoint numbering; observed full agreement text is required by the compatibility executor.
+- Added synthetic ten-job failure/restart and performance coverage. Real recruitment sites, account sessions and host-native cancellation are not established by these fixtures.
+
 ## 1.0.0-beta.17 — Executor stall fixes / 执行卡点修复
 
 - `invalid_arguments` now lists every missing, mistyped or unsupported field in one response (`error.details.errors`), names the operation, and includes a minimal schema-valid `details.example`, so a caller can fix all fields in one retry. Unknown or missing `operation` lists the valid choices.

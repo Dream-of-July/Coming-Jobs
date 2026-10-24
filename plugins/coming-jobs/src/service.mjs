@@ -1,5 +1,8 @@
 import { applyBatch, persistSubmitPause } from './apply-batch.mjs';
+import { applicationQueueStatus, DEFAULT_BATCH_MODE } from './apply-queue.mjs';
+import { executionContext } from './execution-context.mjs';
 import { materialIndex } from './material-index.mjs';
+import { resolveFormProfile } from './form-profile.mjs';
 import { agentTasks } from './tasks.mjs';
 import { executionCheckpoint } from './execution.mjs';
 import { experience } from './experience.mjs';
@@ -20,6 +23,12 @@ import { writeProgress } from './progress.mjs';
 import { workspace } from './workspace.mjs';
 export const handlers = {
     context: (s, a) => {
+        if (a.scope === 'execution') return executionContext(s, a.application_id);
+        if (a.scope === 'batch') {
+            const batchId = a.batch_id ?? s.get('settings', 'active_apply_batch', false)?.batch_id;
+            const batch = batchId ? s.get('apply_batch', batchId) : null;
+            return { compact: true, batch_id: batch?.id ?? null, queue: batch ? applicationQueueStatus(s, batch) : null };
+        }
         if (a.scope === 'daily') return dailySummary(s);
         if (a.scope === 'metrics')
             return { ...metrics(s), execution: s.all('execution_summary'), lightweight: agentTasks(s, { operation: 'metrics' }) };
@@ -29,15 +38,15 @@ export const handlers = {
             return { applications: s.all('application'), queue: queue(s) };
         const active = s.get('settings', 'focus', false);
         let activeId = a.application_id ?? (active?.kind === 'application' ? active.application_id : null);
-        if (activeId && s.get('application',activeId,false)?.stage==='voided') activeId=null;
+        if (activeId && ['voided','cancelled_preparation'].includes(s.get('application',activeId,false)?.stage)) activeId=null;
         return { host: currentHost(), task: active, current_application: activeId && s.get('application', activeId, false) ? applicationContext(s, activeId) : null, coverage: coverage(s), facts: facts(s, a.scope === 'profile' ? null : 'matching'), fit_context: candidateFitContext(s), proposals: s.all('proposal').filter(p => p.state === 'proposed'),
             question: nextQuestion(s), authentication: authenticationContext(s), applications: s.all('application').map(({ id, company, title, stage, submission_evidence }) => ({ id, company, title, stage, submission_evidence })),
-            preferences: {batch_submit:'on',...s.get('settings', 'preferences', false)}, schedule: s.get('settings', 'schedule', false), daily: dailySummary(s), templates: TEMPLATES,
-            capabilities: { lightweight_tasks: 'host_subagents_required', preferred_worker: currentHost().worker, worker_reasoning: 'medium', max_workers: 3, storage: 'available', form_planning: 'available', web_search: 'host_required', browser: 'host_required', figma: 'host_connection_required',
+            preferences: {batch_submit:DEFAULT_BATCH_MODE,...s.get('settings', 'preferences', false)}, schedule: s.get('settings', 'schedule', false), daily: dailySummary(s), templates: TEMPLATES,
+            capabilities: { lightweight_tasks: 'host_subagents_required', preferred_worker: currentHost().worker, worker_reasoning: 'medium', max_workers: 3, storage: 'available', form_planning: 'available', form_profile: 'available', company_choice_strategy: 'available', approved_resume_reuse: 'available', login_codes: currentHost().login_codes, web_search: 'host_required', browser: 'host_required', figma: 'host_connection_required',
                 chatgpt_memory: 'host_tool_or_authorized_export', transcription: 'host_required', email_sms: 'authorized_host_connector_or_manual_read', scheduler: 'host_required', final_submit: 'batch_grant_only' },
             recent_handoff: a.session_id ? s.get('turn', a.session_id, false) : null };
     },
-    apply_batch:applyBatch, material_index: materialIndex, tasks: agentTasks, experience, daily, comparison, remember, profile: (s,a) => a.operation === 'fit_context' ? saveFitProfile(s,a) : a.operation === 'fit_questions' ? fitQuestions(s) : controlProfile(s,a), jobs: (s, a) => a.operation === 'ingest' ? saveJobs(s, a) : assessJobs(s, a), shortlist, material: materialAction,
+    apply_batch:applyBatch, form_profile: resolveFormProfile, material_index: materialIndex, tasks: agentTasks, experience, daily, comparison, remember, profile: (s,a) => a.operation === 'fit_context' ? saveFitProfile(s,a) : a.operation === 'fit_questions' ? fitQuestions(s) : controlProfile(s,a), jobs: (s, a) => a.operation === 'ingest' ? saveJobs(s, a) : assessJobs(s, a), shortlist, material: materialAction,
     plan: planApplication, authorize, checkpoint: (s,a) => a.phase ? executionCheckpoint(s,a) : checkpoint(s,a), recover: recovery, review, handoff, outcome: recordOutcome, followup, interview, workspace, finish: finishTurn
 };
 export function call(store, name, args = {}) {
@@ -66,7 +75,7 @@ export function call(store, name, args = {}) {
             if (short === 'profile' && args.operation === 'recommend')
                 focus = 'discover';
             if (focus && !readBatch && !def.annotations.readOnlyHint && !args.background)
-                store.put('settings', 'focus', { kind: focus, operation: args.operation ?? short, application_id: args.application_id ?? store.get('settings', 'active', false)?.application_id ?? null });
+                store.put('settings', 'focus', { kind: focus, operation: args.operation ?? short, application_id: data?.item?.application_id ?? args.application_id ?? store.get('settings', 'active', false)?.application_id ?? null });
             return data;
         };
         let data = outsideTransaction ? run() : store.mutate(name, args, run);
@@ -83,11 +92,20 @@ export function call(store, name, args = {}) {
             data = args.since === revision ? { unchanged: true, context_revision: revision } : { ...data, context_revision: revision };
         }
         const independentFlow = name === 'jobos1_comparison' || name === 'jobos1_context' && args.scope === 'profile' || name === 'jobos1_profile' && args.operation === 'fit_context';
-        return boundedResult({ ok: true, ...meta, data, flow: independentFlow ? {
-            stage:name==='jobos1_comparison'?'公司比较':'候选资料',can_auto_continue:!!data.run||!!data.tasks?.length,
-            next:{owner:'agent',action:'independent_assessment',prompt:data.next??'先形成并封存本次独立判断，再读取旧推荐；不创建或操作申请。'}
-        } : name === 'jobos1_daily' && args.operation !== 'choose' ? dailyFlow(data) : guidance(store, name === 'jobos1_interview' || name === 'jobos1_followup' ? undefined : args.application_id,
-            { background: !!args.background || name === 'jobos1_context' && ['daily', 'metrics'].includes(args.scope) }) });
+        let flow;
+        try {
+            flow = name === 'jobos1_apply_batch' && data.flow ? data.flow : independentFlow ? {
+                stage:name==='jobos1_comparison'?'公司比较':'候选资料',can_auto_continue:!!data.run||!!data.tasks?.length,
+                next:{owner:'agent',action:'independent_assessment',prompt:data.next??'先形成并封存本次独立判断，再读取旧推荐；不创建或操作申请。'}
+            } : name === 'jobos1_daily' && args.operation !== 'choose' ? dailyFlow(data) : guidance(store, name === 'jobos1_interview' || name === 'jobos1_followup' ? undefined : args.application_id,
+                { background: !!args.background || name === 'jobos1_context' && ['daily', 'metrics'].includes(args.scope) });
+        } catch {
+            // The operation above has already committed. A broken progress view
+            // must not report the write as failed and cause the host to replay it.
+            flow = { status: 'unavailable', stage: '进度建议暂不可用', can_auto_continue: false,
+                next: { owner: 'agent', action: 'refresh_context', prompt: '本次操作已完成。只读检查当前申请；不要重复刚才的写入。' } };
+        }
+        return boundedResult({ ok: true, ...meta, data, flow });
     }
     catch (error) {
         let paused=false;if(name==='jobos1_apply_batch'&&args.operation==='clear_submit'){try{paused=persistSubmitPause(store,args,error);}catch{}}

@@ -5,7 +5,7 @@ import {createApplication} from '../src/jobs.mjs';
 import {itinerary} from '../src/execution.mjs';
 import {now} from '../src/core.mjs';
 export function batchFixture(t,count=3,options={}){
- const e=environment(t);seedProfile(e);const file=path.join(e.dir,'resume.pdf');writeFileSync(file,simplePDF());
+ const e=environment(t);if(options.batch_submit!==null)e.store.put('settings','preferences',{batch_submit:options.batch_submit??'on'});seedProfile(e);const file=path.join(e.dir,'resume.pdf');writeFileSync(file,simplePDF());
  const first=e.run('material',{operation:'register',file,kind:'resume',authorized:true,user_ref:'Synthetic baseline onboarding'});e.run('material',{operation:'approve',material_id:first.id,sha256:first.asset.sha256,visual_ok:true,content_ok:true,text_quality:'pass',confirmed:true,user_ref:'Synthetic baseline onboarding approval'});
  const evidence=e.store.all('fact').find(f=>f.key==='project.anchor'),name=e.store.all('fact').find(f=>f.key==='name');
  const apps=[];

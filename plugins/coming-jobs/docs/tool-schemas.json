@@ -13,6 +13,10 @@
             "start",
             "sheet",
             "approve",
+            "next",
+            "resume",
+            "defer",
+            "retry",
             "human_queue",
             "human_done",
             "human_verify",
@@ -55,16 +59,16 @@
                 "minimum": 1,
                 "maximum": 50
               },
-              "maxItems": 5
+              "maxItems": 10
             },
             {
               "type": "array",
               "items": {
                 "type": "integer",
                 "minimum": 1,
-                "maximum": 5
+                "maximum": 10
               },
-              "maxItems": 5
+              "maxItems": 10
             }
           ]
         },
@@ -83,7 +87,7 @@
             "minLength": 1,
             "maxLength": 100
           },
-          "maxItems": 5
+          "maxItems": 10
         },
         "session_id": {
           "type": "string",
@@ -114,6 +118,33 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 2000
+        },
+        "claim_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "portal_unavailable",
+            "host_unavailable",
+            "readback_failed",
+            "interrupted",
+            "outcome_unknown",
+            "needs_user",
+            "content_changed"
+          ]
+        },
+        "error_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "retry_after_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 300000
         },
         "steps": {
           "type": "array",
@@ -999,8 +1030,8 @@
   },
   {
     "name": "jobos1_context",
-    "title": "一次读取本次任务的画像、完整申请上下文和可选下一步；不得逐字段分页",
-    "description": "一次读取本次任务的画像、完整申请上下文和可选下一步；不得逐字段分页。使用当前宿主能力执行已授权外部操作；最终提交需用户逐批明确批准。",
+    "title": "读取上下文；批次概览用 batch，逐批执行用 execution，最终核对用 application",
+    "description": "读取上下文；批次概览用 batch，逐批执行用 execution，最终核对用 application。使用当前宿主能力执行已授权外部操作；最终提交需用户逐批明确批准。",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1011,11 +1042,18 @@
             "profile",
             "applications",
             "application",
+            "execution",
+            "batch",
             "metrics",
             "daily"
           ]
         },
         "application_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "batch_id": {
           "type": "string",
           "minLength": 1,
           "maxLength": 100
@@ -1037,6 +1075,116 @@
         }
       },
       "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "idempotentHint": true
+    }
+  },
+  {
+    "name": "jobos1_form_profile",
+    "title": "一次匹配整页字段与公司适用的已确认资料；找出 GitHub 等已知选填项及真实缺口",
+    "description": "一次匹配整页字段与公司适用的已确认资料；找出 GitHub 等已知选填项及真实缺口。使用当前宿主能力执行已授权外部操作；最终提交需用户逐批明确批准。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "application_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "free_text",
+                  "portal_select",
+                  "date_picker",
+                  "file_upload",
+                  "url",
+                  "checkbox",
+                  "agreement",
+                  "sensitive_user_owned"
+                ]
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "applicable": {
+                "type": "boolean"
+              },
+              "observation_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "profile_key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "max_length": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 40000
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 500
+              }
+            },
+            "required": [
+              "key",
+              "label",
+              "type",
+              "required"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 1000
+        }
+      },
+      "required": [
+        "application_id",
+        "fields"
+      ],
       "additionalProperties": false
     },
     "annotations": {
@@ -2184,7 +2332,16 @@
         "role_number": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 3
+          "maximum": 100
+        },
+        "role_numbers": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "maxItems": 100
         },
         "host_success": {
           "type": "boolean"
@@ -4263,6 +4420,8 @@
             "claim_propose",
             "claim_approve",
             "compose",
+            "context",
+            "reuse",
             "variation",
             "baseline",
             "lineage",
@@ -4483,6 +4642,47 @@
           "minLength": 1,
           "maxLength": 100
         },
+        "baseline_mappings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "content_key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000
+              },
+              "evidence_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "maxItems": 50,
+                "minItems": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              }
+            },
+            "required": [
+              "content_key",
+              "text",
+              "evidence_ids",
+              "reason"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 200
+        },
         "template": {
           "type": "string",
           "enum": [
@@ -4617,6 +4817,15 @@
             "limited",
             "not_checked"
           ]
+        },
+        "reviewed_content_keys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "maxItems": 200
         },
         "application_id": {
           "type": "string",
@@ -5060,6 +5269,90 @@
             "additionalProperties": false
           },
           "maxItems": 100
+        },
+        "observed_fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "free_text",
+                  "portal_select",
+                  "date_picker",
+                  "file_upload",
+                  "url",
+                  "checkbox",
+                  "agreement",
+                  "sensitive_user_owned"
+                ]
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "applicable": {
+                "type": "boolean"
+              },
+              "observation_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "profile_key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "max_length": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 40000
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 500
+              }
+            },
+            "required": [
+              "key",
+              "label",
+              "type",
+              "required"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 1000
         }
       },
       "required": [
@@ -5740,8 +6033,8 @@
   },
   {
     "name": "jobos1_review",
-    "title": "基于保存的真实回读生成最终审核包，最终由用户提交",
-    "description": "基于保存的真实回读生成最终审核包，最终由用户提交。使用当前宿主能力执行已授权外部操作；最终提交需用户逐批明确批准。",
+    "title": "基于保存的真实回读生成审核包；逐批批准且 clear_submit 放行后才能提交",
+    "description": "基于保存的真实回读生成审核包；逐批批准且 clear_submit 放行后才能提交。使用当前宿主能力执行已授权外部操作；最终提交需用户逐批明确批准。",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -5864,8 +6157,8 @@
   },
   {
     "name": "jobos1_handoff",
-    "title": "缺登录权限或验证码读取能力、声明及真实未知项的可恢复人工接管",
-    "description": "缺登录权限或验证码读取能力、声明及真实未知项的可恢复人工接管。使用当前宿主能力执行已授权外部操作；最终提交需用户逐批明确批准。",
+    "title": "宿主能力缺失、人机挑战、声明及真实未知项的可恢复人工接管；先复用适用授权",
+    "description": "宿主能力缺失、人机挑战、声明及真实未知项的可恢复人工接管；先复用适用授权。使用当前宿主能力执行已授权外部操作；最终提交需用户逐批明确批准。",
     "inputSchema": {
       "type": "object",
       "properties": {

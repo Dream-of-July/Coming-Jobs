@@ -1,9 +1,17 @@
-# beta.6 增量契约
+# 增量契约
 
-沿用 `jobos/1`、17个 `jobos1_` 工具及旧必填参数。新字段均为可选；CLI、MCP和本地看板使用同一 registry 校验。旧数据库无需重建；导出增加 collection，恢复不恢复外部授权与执行占用。
+沿用 `jobos/1`、`jobos1_` 工具前缀及兼容的旧必填参数。CLI、MCP和本地看板使用同一 registry 校验，完整工具列表以 `tool-schemas.json` 为准。旧数据库无需重建；导出增加 collection，恢复不恢复外部授权与执行占用。
+
+## 已集成的表单、材料与志愿改进
+
+- `form_profile(application_id,fields)` 只读匹配真实观察字段与适用事实，包含已知选填链接、公司别名、冲突、长度及真实下拉选项；`plan.observed_fields` 和 `review.field_coverage` 共同检查遗漏。已观察清单保留；动态字段实际不适用时，使用带真实 `observation_ref` 的 `applicable:false` 明确记录，不再列入写入目标。认证及必要声明不作为普通已保存值。
+- `material(context,job_id)` 返回适用材料和证据上下文；`material(reuse)` 为新岗位建立独立的同字节材料记录，不改写源文件归属，不扩大外部授权。`draft` / `lineage` 支持 `baseline_mappings`，`approve.reviewed_content_keys` 记录改写条目已编辑审核。
+- `application_strategy` 显示按公司和招聘范围核实的已用额度、草稿预留和合适独立岗位；`daily.choose.role_numbers` 支持多选，原 `role_number` 仍可用。多选先整体预检，再按明确顺序准备，最终提交遵循逐批批准、clear_submit 和当前宿主边界。
+- Codex 登录码使用宿主短时适配器及已有适用授权；Claude 验证码由用户输入；不写入普通事实、计划、checkpoint 或日志。未知结果只读核验，不重复输入或重发。
 
 ## 上下文与采集
 
+- `context(scope=batch,batch_id)` 返回当前批次的紧凑队列状态；`context(scope=execution,application_id)` 只返回当前计划下一组的目标与恢复证据。执行上下文本身没有写入授权，实际写入仍须 fresh `checkpoint(prepare)`。
 - `context.since` 接受上次 `data.context_revision`；相同响应为 `unchanged=true`，仍返回最新 flow。无 since 保留原有完整字段；当前申请增加 pending_groups、authorization_status、resume_sync。
 - `jobs(ingest).compact=true` 只缩短回包，原始完整JD仍存储。旧调用仍返回完整岗位。
 - `jobs(ingest).collection` 是一个公司/类型/届别的完整编号快照：company、track、可选campaign、source_url、observed_at、total、external_ids、pages_read、has_more、complete。不是新增编号补丁。shortlist(daily) 可传 campaign，避免其他届别影响当前候选池。每次补正文或翻页更新同一范围；不跨真实/演练模式混合。
@@ -11,6 +19,8 @@
 
 ## 授权与恢复
 
+- 新工作区默认 `batch_submit=prefill_only`，已有明确设置继续有效。一批支持 1–10 岗；`apply_batch(next/resume/defer/retry)` 保存领取、阶段尝试和等待时间，一个岗位的人工步骤或可恢复失败不占住其余岗位。准备就绪项不再重复领取，最后集中交接本人提交。
+- 浏览器保留一个前台写入者；恢复沿用原宿主和原会话绑定。未知写入先回读，未知提交只核验，不自动再次点击。原生写入没有可证明取消结果时，不可启动替代写入者；单纯的队列租约过期不能取消仍在运行的宿主动作。
 - `authorize.reuse=true` 不创建新内容授权，只为已覆盖内容续上两小时单会话执行占用；必须引用原授权，另一未过期会话不能抢写。旧版 grant 仅在原计划与原有效期内适用。
 - 新 grant 的 scope_hash 绑定申请、JD与接收方，field_grants 绑定字段语义、值、事实版本与附件字节。定位器、顺序和同字节显示改名不扩大内容；新增值、事实纠正或接收方变化不能复用。
 - plan 返回 covered_fields / missing_fields；未变化且独立的字段组可以先继续。计划变化保留原值与可恢复观察，最终就绪需重新回读。

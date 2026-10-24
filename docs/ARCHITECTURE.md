@@ -7,6 +7,8 @@
 | Profile and validity | Evidence/intent matching digest, cited-evidence invalidation, soft stale and structured gate projection |
 | Claims and renderer | Locked baseline, approved claims, plugin composition, offline Chrome worker, DOM/PDF/screenshot receipts |
 | Apply batch | target_list, apply_batch, pure approval sheet, atomic apply_grant and existing prefill authorization |
+| Application queue | Embedded apply_batch.queue, one fenced foreground claim, per-item phases/retry budgets, ready-draft collection and recovery-first continuation |
+| Execution context | Read-only next-batch packet without previous plans, unrelated profile data or browser write authority |
 | Execution | At-most-eight native action batches, write-ahead state, parser comparison, recovery and portal persistence |
 | Submit attempt | Foreground-only content recheck, unknown-before-click state, immutable resume SHA, result tracking |
 | Private SQLite | WAL, serialized mutations, single writer leases, audit digests and backup/revert |
@@ -20,3 +22,7 @@ Original daily `batch` records remain separate. Every new record kind is include
 Node never evaluates a template function. The synchronous parent transports pinned source/data to a disposable CDP-pipe worker, which evaluates the function only inside an offline Chrome page. Rendering happens outside database write transactions; verified receipts and assets register afterward. No npm dependency is added.
 
 User statements and host observations remain evidence inputs. This is a local orchestration and consent boundary, not an independent portal verifier or a browser permission bypass.
+
+beta.18 accepts one to ten applications. New workspaces default to prefill_only; explicit stored modes are unchanged. Scheduling claims do not replace content authorization. A browser operation already in flight is host-owned and cannot be cancelled by merely expiring a SQLite record. Fixed executor read waits are bounded; writes are awaited before continuation. New plans use execution_version=2 to isolate agreement observation; legacy plans retain their original checkpoint numbering.
+
+The service returns operation-specific queue flow instead of replacing it with generic guidance. A guidance-rendering failure after a committed mutation is reported as an unavailable progress view, with ok=true for the completed operation, so the caller does not replay a saved write. Read-only worker claims reclaim expired slots globally and reject late attempts; stale input packets block their own tasks without rolling back healthy dispatch.

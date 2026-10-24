@@ -2,7 +2,43 @@ import { assert, hash, now, iso, noSecrets, publicUrl } from './core.mjs';
 const normal = s => String(s).normalize('NFKC').trim().toLowerCase();
 export const companyMatches = (company, label) => [company.name, ...company.aliases].some(n => normal(n) === normal(label));
 export const scopeKey = s => hash([s.track, s.campaign]);
-export const submitted = a => a.stage !== 'voided' && (!!a.submission_evidence && !['unverified', 'none'].includes(a.submission_evidence) || !['preparing', 'unknown'].includes(a.stage));
+export const submitted = a => a.stage !== 'voided' && (!!a.submission_evidence && !['unverified', 'none'].includes(a.submission_evidence) ||
+    !!a.submitted_material || (a.ever_stages ?? []).some(stage => !['preparing', 'unknown', 'cancelled_preparation'].includes(stage)) ||
+    !['preparing', 'unknown', 'cancelled_preparation'].includes(a.stage));
+export const applicationScope = (store, app) => ({ ...(app.job_snapshot ?? {}), ...(store.get('application_scope', app.id, false) ?? {}) });
+export const applicationChoiceKey = job => job.parent_application_id ?? job.external_id ?? job.job_id ?? job.id;
+export const jobObservationCurrent = job => Date.parse(job.observed_at) <= Date.now() + 300000 && Date.now() - Date.parse(job.observed_at) <= 7 * 86400000;
+
+/** Cancel only untouched local preparation. External work needs outcome verification. */
+export function cancelLocalPreparations(store, applications, { user_ref, reason = '' }) {
+    const cancelled_application_ids = [], unchanged_application_ids = [], blocked = [];
+    for (const app of applications) {
+        if (app.stage === 'cancelled_preparation' && !submitted(app)) {
+            cancelled_application_ids.push(app.id);
+            continue;
+        }
+        if (submitted(app) || !['preparing', 'unknown'].includes(app.stage)) {
+            unchanged_application_ids.push(app.id);
+            continue;
+        }
+        let blockedReason = null;
+        if (app.stage === 'unknown' || app.submission_evidence === 'unverified' || (app.ever_stages ?? []).some(stage => stage !== 'preparing') ||
+            app.observations?.length || app.review?.ready) blockedReason = 'submission_not_verified';
+        else if (store.all('execution_batch').some(batch => batch.application_id === app.id) ||
+            store.all('draft').some(draft => draft.application_id === app.id) ||
+            store.all('draft_history').some(draft => draft.application_id === app.id)) blockedReason = 'portal_preparation_exists';
+        if (blockedReason) {
+            blocked.push({ application_id: app.id, reason: blockedReason });
+            continue;
+        }
+        const cancellation = { cancelled_at: now(), user_ref, reason, basis: 'no_recorded_portal_execution_or_submission', authorization_revoked: true };
+        store.put('application', app.id, { ...app, stage: 'cancelled_preparation', authorization: null, review: null, handoff: null, dirty: true,
+            preparation_cancellation: cancellation, preparation_cancellations: [...(app.preparation_cancellations ?? []), cancellation] });
+        cancelled_application_ids.push(app.id);
+    }
+    return { cancelled_application_ids, unchanged_application_ids, blocked,
+        note: '只取消尚无门户执行或提交记录的本地准备；已有门户操作或结果不明的申请保留名额并先核验，未执行任何门户撤回。' };
+}
 export function registerCompany(store, a) {
     noSecrets(a);
     const old = a.company_id ? store.get('company', a.company_id) : store.all('company').find(c => companyMatches(c, a.name));
@@ -37,24 +73,34 @@ export function setOpportunity(store, a) {
 export function opportunity(store, company, scope, mode = 'live') {
     const rule = store.get('opportunity', hash([company.id, scope.track, scope.campaign]), false);
     const apps = store.all('application').filter(a => (a.mode ?? 'live') === mode && companyMatches(company, a.company));
-    const used = new Set(), uncertain = [];
+    const used = new Set(), uncertain = [], reservations = new Map(), uncertainDrafts = [];
     for (const a of apps.filter(a => submitted(a) || a.stage === 'unknown')) {
-        const j = { ...(a.job_snapshot ?? {}), ...(store.get('application_scope', a.id, false) ?? {}) };
+        const j = applicationScope(store, a);
         if (j.track && j.track !== scope.track || j.campaign && j.campaign !== scope.campaign) continue;
         if (!j.track || !j.campaign || !submitted(a)) { uncertain.push(a.id); continue; }
-        used.add(j.parent_application_id ?? j.external_id ?? a.job_id ?? a.id);
+        used.add(applicationChoiceKey({ ...j, job_id: a.job_id, id: a.id }));
+    }
+    for (const a of apps.filter(a => a.stage === 'preparing' && !submitted(a))) {
+        const j = applicationScope(store, a);
+        if (j.track && j.track !== scope.track || j.campaign && j.campaign !== scope.campaign) continue;
+        if (!j.track || !j.campaign) { uncertainDrafts.push(a.id); continue; }
+        const key = applicationChoiceKey({ ...j, job_id: a.job_id, id: a.id });
+        if (!used.has(key)) reservations.set(key, [...(reservations.get(key) ?? []), a.id]);
     }
     const remaining = rule?.limit == null ? null : Math.max(0, rule.limit - used.size);
     const exhausted = !!rule?.exhausted || remaining === 0;
     const rulesVerified = !!rule && Date.now() - Date.parse(rule.observed_at) <= 7 * 86400000;
     const closed=!!rule?.deadline&&Date.parse(rule.deadline)<=Date.now();
-    return { state: closed ? 'closed' : exhausted ? 'exhausted' : uncertain.length || remaining === null || !rulesVerified ? 'needs_verification' : 'available',
+    const state = closed ? 'closed' : exhausted ? 'exhausted' : uncertain.length || uncertainDrafts.length || remaining === null || !rulesVerified ? 'needs_verification' : 'available';
+    return { state, limit: rule?.limit ?? null,
         remaining: uncertain.length ? null : remaining, used: used.size, uncertain_application_ids: uncertain,
+        reserved: reservations.size, reserved_application_ids: [...reservations.values()].flat(), uncertain_draft_application_ids: uncertainDrafts,
+        new_capacity: state === 'available' ? Math.max(0, remaining - reservations.size) : state === 'exhausted' || state === 'closed' ? 0 : null,
         rule_source: rule?.source ?? 'unknown', rule_observed_at: rule?.observed_at ?? null,
         rule_source_ref: rule?.source_ref ?? null, can_change: rule?.can_change ?? null, volunteer_order: rule?.volunteer_order ?? 'unknown', deadline: rule?.deadline ?? null,
         rules_verification: rulesVerified ? 'verified' : 'unreviewed',
         applications: apps.map(a => {const observation=(a.observations??[]).map(key=>store.get('observation',key,false)).filter(Boolean).sort((a,b)=>Date.parse(b.observed_at)-Date.parse(a.observed_at))[0];return { id: a.id, job_id: a.job_id, external_id: a.job_snapshot?.external_id ?? null, stage: a.stage, raw_stage: observation?.raw_stage??a.raw_stage??null, observed_at:observation?.observed_at??a.last_observation_at??null };}),
-        note: [closed ? '本招聘项目已超过官方截止日，继续跟进已有申请。' : exhausted ? '本批次机会已用完，继续跟进已有申请。' : uncertain.length ? '历史批次或提交结果不明确，先只读核验剩余机会。' : remaining === null ? '剩余名额未知，开始投递前核验官方规则。' : null,
+        note: [closed ? '本招聘项目已超过官方截止日，继续跟进已有申请。' : exhausted ? '本批次机会已用完，继续跟进已有申请。' : uncertain.length || uncertainDrafts.length ? '历史批次、准备中申请范围或提交结果不明确，先只读核验剩余机会。' : remaining === null ? '剩余名额未知，开始投递前核验官方规则。' : null,
             !rulesVerified ? '投递规则未复核（缺失或核验已超过7天）。' : null].filter(Boolean).join(' ') || null };
 }
 
